@@ -29,7 +29,7 @@ public class SensorDataSimulator {
     /**
      * 每 30 秒执行一次模拟 (演示频率快一些)
      */
-    @Scheduled(fixedRate = 30000)
+    @Scheduled(fixedRate = 600000)
     public void generateMockData() {
         System.out.println(">>> [Simulator] 开始生成模拟传感器数据...");
 
