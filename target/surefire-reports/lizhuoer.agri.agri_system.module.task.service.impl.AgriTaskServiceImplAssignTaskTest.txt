@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: lizhuoer.agri.agri_system.module.task.service.impl.AgriTaskServiceImplAssignTaskTest
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.564 s -- in lizhuoer.agri.agri_system.module.task.service.impl.AgriTaskServiceImplAssignTaskTest

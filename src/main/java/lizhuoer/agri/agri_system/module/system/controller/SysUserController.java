@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.system.domain.SysUser;
+import lizhuoer.agri.agri_system.module.system.domain.SysUserRole;
+import lizhuoer.agri.agri_system.module.system.mapper.SysUserRoleMapper;
 import lizhuoer.agri.agri_system.module.system.service.ISysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,9 @@ public class SysUserController {
 
     @Autowired
     private ISysUserService userService;
+
+    @Autowired
+    private SysUserRoleMapper userRoleMapper;
 
     /**
      * 分页查询用户
@@ -70,8 +75,11 @@ public class SysUserController {
      */
     @DeleteMapping("/{userIds}")
     public R<Void> remove(@PathVariable Long[] userIds) {
-        // Arrays.asList(userIds)
-        userService.removeBatchByIds(java.util.Arrays.asList(userIds));
+        java.util.List<Long> ids = java.util.Arrays.asList(userIds);
+        // 先删除用户-角色关联记录
+        userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().in(SysUserRole::getUserId, ids));
+        // 再删除用户
+        userService.removeBatchByIds(ids);
         return R.ok();
     }
 }

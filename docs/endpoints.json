@@ -1,0 +1,2441 @@
+﻿[
+    {
+        "tag":  "Auth",
+        "method":  "POST",
+        "path":  "/login",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "User login",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "LoginBody"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1login/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "Login result (R\u003cLoginData\u003e)",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1login/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "Auth",
+        "method":  "POST",
+        "path":  "/register",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "User register",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysUser"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1register/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "Register result (R\u003cVoid\u003e)",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1register/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemUser",
+        "method":  "GET",
+        "path":  "/system/user/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List users (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "username":  "string|number",
+                                                     "realName":  "string|number",
+                                                     "status":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "username":  "farmer",
+                                                      "realName":  "Li",
+                                                      "status":  "1"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cSysUser\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1user~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "SystemUser",
+        "method":  "GET",
+        "path":  "/system/user/{userId}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Get user detail",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "userId":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "userId":  "3"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cSysUser\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1user~1{userId}/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemUser",
+        "method":  "DELETE",
+        "path":  "/system/user/{userId}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete users by CSV ids",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "userIds":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "userIds":  "3,4"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1user~1{userId}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemUser",
+        "method":  "POST",
+        "path":  "/system/user",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create user",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysUser"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1system~1user/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1user/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemUser",
+        "method":  "PUT",
+        "path":  "/system/user",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update user",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysUser"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1system~1user/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1user/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemRole",
+        "method":  "GET",
+        "path":  "/system/role/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List roles (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "roleName":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "roleName":  "FARM"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cSysRole\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1role~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "SystemRole",
+        "method":  "POST",
+        "path":  "/system/role",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create role",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysRole"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1system~1role/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1role/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemRole",
+        "method":  "PUT",
+        "path":  "/system/role",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update role",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysRole"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1system~1role/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1role/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemRole",
+        "method":  "DELETE",
+        "path":  "/system/role/{roleIds}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete roles by CSV ids",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "roleIds":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "roleIds":  "6"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e (success or business-fail in body code)",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1role~1{roleIds}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Role delete pre-check: if sys_user_role bindings \u003e 0, deletion forbidden (code != 200)."
+    },
+    {
+        "tag":  "SystemMenu",
+        "method":  "GET",
+        "path":  "/system/menu/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List menus",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cList\u003cSysMenu\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1menu~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemMenu",
+        "method":  "POST",
+        "path":  "/system/menu",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create menu",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysMenu"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1system~1menu/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1menu/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemMenu",
+        "method":  "PUT",
+        "path":  "/system/menu",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update menu",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "SysMenu"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1system~1menu/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1menu/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "SystemMenu",
+        "method":  "DELETE",
+        "path":  "/system/menu/{menuId}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete menu",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "menuId":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "menuId":  "2"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1system~1menu~1{menuId}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropVariety",
+        "method":  "GET",
+        "path":  "/crop/variety/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List crop varieties (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "cropName":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "cropName":  "wheat"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cBaseCropVariety\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1variety~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "CropVariety",
+        "method":  "GET",
+        "path":  "/crop/variety/all",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List all crop varieties",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cList\u003cBaseCropVariety\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1variety~1all/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropVariety",
+        "method":  "POST",
+        "path":  "/crop/variety",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create crop variety",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "BaseCropVariety"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1crop~1variety/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1variety/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropVariety",
+        "method":  "PUT",
+        "path":  "/crop/variety",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update crop variety",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "BaseCropVariety"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1crop~1variety/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1variety/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropVariety",
+        "method":  "DELETE",
+        "path":  "/crop/variety/{ids}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete crop varieties by CSV ids",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "ids":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "ids":  "1,2"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1variety~1{ids}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropBatch",
+        "method":  "GET",
+        "path":  "/crop/batch/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List crop batches (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "plotId":  "string|number",
+                                                     "currentStage":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "plotId":  "PLOT-A01",
+                                                      "currentStage":  "Tillering"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cCropBatch\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1batch~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "CropBatch",
+        "method":  "POST",
+        "path":  "/crop/batch",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create crop batch",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "CropBatch"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1crop~1batch/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1batch/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropBatch",
+        "method":  "PUT",
+        "path":  "/crop/batch",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update crop batch",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "CropBatch"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1crop~1batch/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1batch/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "CropBatch",
+        "method":  "DELETE",
+        "path":  "/crop/batch/{ids}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete crop batches by CSV ids",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "ids":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "ids":  "1,2"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1batch~1{ids}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "GrowthLog",
+        "method":  "GET",
+        "path":  "/crop/growth-log/list/{batchId}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List growth logs by batch id",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "batchId":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "batchId":  "1"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cList\u003cGrowthStageLog\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1growth-log~1list~1{batchId}/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "GrowthLog",
+        "method":  "POST",
+        "path":  "/crop/growth-log",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create growth log",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "GrowthStageLog"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1crop~1growth-log/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1crop~1growth-log/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "IotRule",
+        "method":  "GET",
+        "path":  "/iot/rule/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List IoT task rules (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cAgriTaskRule\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1iot~1rule~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "IotRule",
+        "method":  "POST",
+        "path":  "/iot/rule",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create IoT task rule",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "AgriTaskRule"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1iot~1rule/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1iot~1rule/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "IotRule",
+        "method":  "PUT",
+        "path":  "/iot/rule",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update IoT task rule",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "AgriTaskRule"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1iot~1rule/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1iot~1rule/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "IotRule",
+        "method":  "DELETE",
+        "path":  "/iot/rule/{id}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete IoT task rule",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "id":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "id":  "1"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1iot~1rule~1{id}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "IotData",
+        "method":  "GET",
+        "path":  "/iot/data/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List IoT sensor data (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "plotId":  "string|number",
+                                                     "sensorType":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "plotId":  "PLOT-A01",
+                                                      "sensorType":  "temperature"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cIotSensorData\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1iot~1data~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "Task",
+        "method":  "GET",
+        "path":  "/task/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List tasks (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "taskName":  "string|number",
+                                                     "status":  "string|number",
+                                                     "executorId":  "string|number",
+                                                     "assigneeId":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "taskName":  "Irrigate",
+                                                      "status":  "0",
+                                                      "executorId":  "3",
+                                                      "assigneeId":  "3"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cAgriTask\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  {
+                                                                      "current":  1,
+                                                                      "size":  10,
+                                                                      "total":  1,
+                                                                      "records":  [
+                                                                                      {
+                                                                                          "taskId":  1,
+                                                                                          "batchId":  1,
+                                                                                          "taskName":  "Spring Fertilization",
+                                                                                          "taskType":  "Fertilize",
+                                                                                          "priority":  1,
+                                                                                          "planTime":  "2026-03-05T08:00:00",
+                                                                                          "status":  1,
+                                                                                          "executorId":  3,
+                                                                                          "executorName":  "Zhang San",
+                                                                                          "executorRoleKey":  "FARMER",
+                                                                                          "executorRoleName":  "农户",
+                                                                                          "assigneeId":  3,
+                                                                                          "assigneeName":  "Zhang San",
+                                                                                          "assignTime":  "2026-03-01T09:00:00",
+                                                                                          "assignBy":  1,
+                                                                                          "assignRemark":  "Please handle today",
+                                                                                          "acceptTime":  null,
+                                                                                          "acceptBy":  null,
+                                                                                          "rejectTime":  null,
+                                                                                          "rejectBy":  null,
+                                                                                          "rejectReason":  null,
+                                                                                          "createBy":  1,
+                                                                                          "createTime":  "2026-02-28T09:00:00",
+                                                                                          "updateBy":  null,
+                                                                                          "updateTime":  null,
+                                                                                          "version":  0
+                                                                                      }
+                                                                                  ]
+                                                                  }
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records. records[] include executorId/assigneeId plus readable executorName/assigneeName and executorRoleKey/executorRoleName."
+    },
+    {
+        "tag":  "Task",
+        "method":  "POST",
+        "path":  "/task",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create task (status forced to 0)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "AgriTaskCreate"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1task/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "Task",
+        "method":  "PUT",
+        "path":  "/task",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update task basic info only",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "TaskUpdateDTO"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1task/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "Task",
+        "method":  "PUT",
+        "path":  "/task/assign",
+        "auth":  {
+                     "required":  true,
+                     "roles":  [
+                                   "ADMIN",
+                                   "FARM_OWNER"
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Assign task (ADMIN/FARM_OWNER, FARMER:0 -\u003e 1, WORKER:0 -\u003e 2)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "TaskAssignDTO"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1task~1assign/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1assign/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "State transition: assign FARMER 0 -\u003e 1, assign WORKER 0 -\u003e 2. Assignee must be active FARMER/WORKER; other roles return business error msg: 仅支持派给 FARMER/WORKER."
+    },
+    {
+        "tag":  "Task",
+        "method":  "POST",
+        "path":  "/task/accept",
+        "auth":  {
+                     "required":  true,
+                     "roles":  [
+                                   "FARMER"
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Accept task (FARMER assignee only, 1 -\u003e 2)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "TaskAcceptDTO"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1task~1accept/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1accept/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "State transition: 1 -\u003e 2 (pending_accept to accepted). Caller must be assigned FARMER; WORKER calling this endpoint returns business error msg: WORKER无需接单/拒单，请直接执行任务."
+    },
+    {
+        "tag":  "Task",
+        "method":  "POST",
+        "path":  "/task/reject",
+        "auth":  {
+                     "required":  true,
+                     "roles":  [
+                                   "FARMER"
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Reject task (FARMER assignee only, 1 -\u003e 0)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "TaskRejectDTO"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1task~1reject/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1reject/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "State transition: 1 -\u003e 0 (pending_accept to pending_assign). Caller must be assigned FARMER; WORKER calling this endpoint returns business error msg: WORKER无需接单/拒单，请直接执行任务."
+    },
+    {
+        "tag":  "Task",
+        "method":  "DELETE",
+        "path":  "/task/{ids}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete tasks by CSV ids",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "ids":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "ids":  "1,2"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1{ids}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "TaskLog",
+        "method":  "GET",
+        "path":  "/task/log/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List task execution logs (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "taskId":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "taskId":  "6"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cTaskExecutionLog\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1log~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "TaskLog",
+        "method":  "POST",
+        "path":  "/task/log",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Submit task execution log",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "TaskExecutionLog"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1task~1log/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1task~1log/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "MaterialInfo",
+        "method":  "GET",
+        "path":  "/material/info/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List materials (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "name":  "string|number",
+                                                     "category":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "name":  "Fertilizer",
+                                                      "category":  "Chemical"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cMaterialInfo\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1material~1info~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "MaterialInfo",
+        "method":  "POST",
+        "path":  "/material/info",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Create material",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "MaterialInfo"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1material~1info/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1material~1info/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "MaterialInfo",
+        "method":  "PUT",
+        "path":  "/material/info",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Update material",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "MaterialInfo"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1material~1info/put/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1material~1info/put/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "MaterialInfo",
+        "method":  "DELETE",
+        "path":  "/material/info/{ids}",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Delete materials by CSV ids",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+                                                    "ids":  "string|number"
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+                                                     "ids":  "1,2"
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1material~1info~1{ids}/delete/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "MaterialLog",
+        "method":  "GET",
+        "path":  "/material/log/list",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "List material inout logs (paged)",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+                                                     "pageNum":  "string|number",
+                                                     "pageSize":  "string|number",
+                                                     "materialId":  "string|number"
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+                                                      "pageNum":  "1",
+                                                      "pageSize":  "10",
+                                                      "materialId":  "1"
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cPage\u003cMaterialInoutLog\u003e\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1material~1log~1list/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Pagination response data fields: current, size, total, records."
+    },
+    {
+        "tag":  "MaterialLog",
+        "method":  "POST",
+        "path":  "/material/log/execute",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Execute material in/out",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  "MaterialInoutLog"
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  "#/paths/~1material~1log~1execute/post/requestBody/content/application~1json/example"
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cVoid\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1material~1log~1execute/post/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    },
+    {
+        "tag":  "Report",
+        "method":  "GET",
+        "path":  "/report/dashboard",
+        "auth":  {
+                     "required":  false,
+                     "roles":  [
+
+                               ],
+                     "header":  "Authorization: Bearer \u003ctoken\u003e"
+                 },
+        "summary":  "Dashboard data",
+        "request":  {
+                        "schema":  {
+                                       "query":  {
+
+                                                 },
+                                       "path":  {
+
+                                                },
+                                       "body":  null
+                                   },
+                        "example":  {
+                                        "query":  {
+
+                                                  },
+                                        "path":  {
+
+                                                 },
+                                        "bodyOpenapiRef":  null
+                                    }
+                    },
+        "response":  {
+                         "schema":  "R\u003cDashboardData\u003e",
+                         "example":  {
+                                         "success":  {
+                                                         "code":  200,
+                                                         "msg":  "Operation success",
+                                                         "data":  "\u003csee openapi response example\u003e"
+                                                     },
+                                         "fail":  {
+                                                      "code":  500,
+                                                      "msg":  "Operation failed",
+                                                      "data":  null
+                                                  },
+                                         "openapiRef":  "#/paths/~1report~1dashboard/get/responses/200/content/application~1json/example"
+                                     }
+                     },
+        "notes":  "Response follows R\u003cT\u003e; success code=200, failure code!=200."
+    }
+]

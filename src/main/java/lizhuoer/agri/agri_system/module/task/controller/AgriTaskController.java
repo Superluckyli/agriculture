@@ -3,10 +3,17 @@ package lizhuoer.agri.agri_system.module.task.controller;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.servlet.http.HttpServletRequest;
 import lizhuoer.agri.agri_system.common.domain.R;
+import lizhuoer.agri.agri_system.common.security.LoginUser;
+import lizhuoer.agri.agri_system.common.security.LoginUserContext;
 import lizhuoer.agri.agri_system.module.task.domain.AgriTask;
+import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAcceptDTO;
+import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAssignDTO;
+import lizhuoer.agri.agri_system.module.task.domain.dto.TaskRejectDTO;
+import lizhuoer.agri.agri_system.module.task.domain.dto.TaskUpdateDTO;
+import lizhuoer.agri.agri_system.module.task.domain.enums.TaskStatus;
 import lizhuoer.agri.agri_system.module.task.service.IAgriTaskService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -16,54 +23,83 @@ import java.util.Arrays;
 @RequestMapping("/task")
 public class AgriTaskController {
 
-    @Autowired
-    private IAgriTaskService taskService;
+    private final IAgriTaskService taskService;
+
+    public AgriTaskController(IAgriTaskService taskService) {
+        this.taskService = taskService;
+    }
 
     @GetMapping("/list")
     public R<Page<AgriTask>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String taskName,
             Integer status,
-            Long executorId) {
+            Long executorId,
+            Long assigneeId) {
         Page<AgriTask> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<AgriTask> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(StrUtil.isNotBlank(taskName), AgriTask::getTaskName, taskName)
                 .eq(status != null, AgriTask::getStatus, status)
+                .eq(assigneeId != null, AgriTask::getAssigneeId, assigneeId)
                 .eq(executorId != null, AgriTask::getExecutorId, executorId)
                 .orderByDesc(AgriTask::getPriority)
                 .orderByDesc(AgriTask::getCreateTime);
-        return R.ok(taskService.page(page, wrapper));
+        Page<AgriTask> taskPage = taskService.page(page, wrapper);
+        taskService.fillTaskUserNames(taskPage.getRecords());
+        return R.ok(taskPage);
     }
 
     @PostMapping
     public R<Void> add(@RequestBody AgriTask task) {
+        LocalDateTime now = LocalDateTime.now();
         if (task.getCreateTime() == null) {
-            task.setCreateTime(LocalDateTime.now());
+            task.setCreateTime(now);
         }
-        if (task.getStatus() == null) {
-            task.setStatus(0); // 默认待分配
-        }
+        task.setStatus(TaskStatus.PENDING_ASSIGN.getCode());
+        task.setAssigneeId(null);
+        task.setExecutorId(null);
+        task.setAssignTime(null);
+        task.setAssignBy(null);
+        task.setAssignRemark(null);
+        task.setAcceptTime(null);
+        task.setAcceptBy(null);
+        task.setRejectTime(null);
+        task.setRejectBy(null);
+        task.setRejectReason(null);
+        task.setUpdateTime(now);
+        task.setVersion(0);
         taskService.save(task);
         return R.ok();
     }
 
+    /**
+     * Basic info update only; status/assignee related fields are intentionally not exposed.
+     */
     @PutMapping
-    public R<Void> edit(@RequestBody AgriTask task) {
-        taskService.updateById(task);
+    public R<Void> edit(@RequestBody TaskUpdateDTO dto) {
+        taskService.updateBasicInfo(dto, LoginUserContext.get());
         return R.ok();
     }
 
-    /**
-     * 指派任务（快捷接口）
-     */
     @PutMapping("/assign")
-    public R<Void> assign(@RequestBody AgriTask task) {
-        // 前端传 taskId 和 executorId
-        if (task.getTaskId() == null || task.getExecutorId() == null) {
-            return R.fail("参数不全");
-        }
-        task.setStatus(1); // 变更为待执行
-        taskService.updateById(task);
+    public R<Void> assign(@RequestBody TaskAssignDTO dto, HttpServletRequest request) {
+        validateAssignRequest(dto);
+        LoginUser loginUser = LoginUserContext.requireUser();
+        taskService.assignTask(dto, loginUser, request.getHeader("X-Trace-Id"));
+        return R.ok();
+    }
+
+    @PostMapping("/accept")
+    public R<Void> accept(@RequestBody TaskAcceptDTO dto, HttpServletRequest request) {
+        LoginUser loginUser = LoginUserContext.requireUser();
+        taskService.acceptTask(dto, loginUser, request.getHeader("X-Trace-Id"));
+        return R.ok();
+    }
+
+    @PostMapping("/reject")
+    public R<Void> reject(@RequestBody TaskRejectDTO dto, HttpServletRequest request) {
+        LoginUser loginUser = LoginUserContext.requireUser();
+        taskService.rejectTask(dto, loginUser, request.getHeader("X-Trace-Id"));
         return R.ok();
     }
 
@@ -71,5 +107,14 @@ public class AgriTaskController {
     public R<Void> remove(@PathVariable Long[] ids) {
         taskService.removeBatchByIds(Arrays.asList(ids));
         return R.ok();
+    }
+
+    private void validateAssignRequest(TaskAssignDTO dto) {
+        if (dto == null || dto.getTaskId() == null || dto.getExecutorId() == null) {
+            throw new IllegalArgumentException("taskId 和 executorId 不能为空");
+        }
+        if (dto.getTaskId() <= 0 || dto.getExecutorId() <= 0) {
+            throw new IllegalArgumentException("taskId 和 executorId 必须大于 0");
+        }
     }
 }

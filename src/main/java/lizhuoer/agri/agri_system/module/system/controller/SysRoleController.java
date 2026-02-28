@@ -41,7 +41,6 @@ public class SysRoleController {
 
     @DeleteMapping("/{roleIds}")
     public R<Void> remove(@PathVariable Long[] roleIds) {
-        roleService.removeBatchByIds(Arrays.asList(roleIds));
-        return R.ok();
+        return roleService.deleteRoles(Arrays.asList(roleIds));
     }
 }
