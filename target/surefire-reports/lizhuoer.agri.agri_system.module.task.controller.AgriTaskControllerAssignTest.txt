@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: lizhuoer.agri.agri_system.module.task.controller.AgriTaskControllerAssignTest
--------------------------------------------------------------------------------
-Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.047 s -- in lizhuoer.agri.agri_system.module.task.controller.AgriTaskControllerAssignTest
