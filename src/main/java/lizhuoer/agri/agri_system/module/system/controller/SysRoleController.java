@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.List;
 
 @RestController
 @RequestMapping("/system/role")
@@ -25,6 +26,14 @@ public class SysRoleController {
         LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(roleName != null, SysRole::getRoleName, roleName);
         return R.ok(roleService.page(page, wrapper));
+    }
+
+    /**
+     * 查询全部角色（不分页，用于下拉/checkbox）
+     */
+    @GetMapping("/all")
+    public R<List<SysRole>> all() {
+        return R.ok(roleService.list());
     }
 
     @PostMapping

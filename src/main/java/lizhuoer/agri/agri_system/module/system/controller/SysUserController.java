@@ -1,18 +1,27 @@
 package lizhuoer.agri.agri_system.module.system.controller;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lizhuoer.agri.agri_system.common.domain.R;
+import lizhuoer.agri.agri_system.common.security.LoginUser;
+import lizhuoer.agri.agri_system.common.security.LoginUserContext;
+import lizhuoer.agri.agri_system.module.system.domain.SysRole;
 import lizhuoer.agri.agri_system.module.system.domain.SysUser;
 import lizhuoer.agri.agri_system.module.system.domain.SysUserRole;
+import lizhuoer.agri.agri_system.module.system.mapper.SysRoleMapper;
 import lizhuoer.agri.agri_system.module.system.mapper.SysUserRoleMapper;
 import lizhuoer.agri.agri_system.module.system.service.ISysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 /**
- * 用户管理 Controller (简化版)
+ * 用户管理 Controller
  */
 @RestController
 @RequestMapping("/system/user")
@@ -24,8 +33,11 @@ public class SysUserController {
     @Autowired
     private SysUserRoleMapper userRoleMapper;
 
+    @Autowired
+    private SysRoleMapper roleMapper;
+
     /**
-     * 分页查询用户
+     * 分页查询用户（附带角色信息）
      */
     @GetMapping("/list")
     public R<Page<SysUser>> list(@RequestParam(defaultValue = "1") Integer pageNum,
@@ -37,7 +49,11 @@ public class SysUserController {
                 .like(StrUtil.isNotBlank(user.getRealName()), SysUser::getRealName, user.getRealName())
                 .eq(user.getStatus() != null, SysUser::getStatus, user.getStatus())
                 .orderByDesc(SysUser::getCreateTime);
-        return R.ok(userService.page(page, wrapper));
+        Page<SysUser> result = userService.page(page, wrapper);
+
+        fillUserRoles(result.getRecords());
+
+        return R.ok(result);
     }
 
     /**
@@ -56,7 +72,11 @@ public class SysUserController {
         if (userService.count(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, user.getUsername())) > 0) {
             return R.fail("新增用户'" + user.getUsername() + "'失败，账号已存在");
         }
-        user.setCreateTime(null); // use db default
+        user.setUserId(null);
+        if (StrUtil.isNotBlank(user.getPassword())) {
+            user.setPassword(hashPassword(user.getPassword()));
+        }
+        user.setCreateTime(null);
         userService.save(user);
         return R.ok();
     }
@@ -66,6 +86,13 @@ public class SysUserController {
      */
     @PutMapping
     public R<Void> edit(@RequestBody SysUser user) {
+        if (user.getPassword() != null) {
+            if (StrUtil.isBlank(user.getPassword())) {
+                user.setPassword(null);
+            } else {
+                user.setPassword(hashPassword(user.getPassword()));
+            }
+        }
         userService.updateById(user);
         return R.ok();
     }
@@ -75,11 +102,136 @@ public class SysUserController {
      */
     @DeleteMapping("/{userIds}")
     public R<Void> remove(@PathVariable Long[] userIds) {
-        java.util.List<Long> ids = java.util.Arrays.asList(userIds);
-        // 先删除用户-角色关联记录
+        List<Long> ids = Arrays.asList(userIds);
         userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().in(SysUserRole::getUserId, ids));
-        // 再删除用户
         userService.removeBatchByIds(ids);
         return R.ok();
+    }
+
+    // ==================== 角色分配 ====================
+
+    /**
+     * 获取用户已分配的角色ID列表
+     */
+    @GetMapping("/{userId}/roles")
+    public R<List<Long>> getUserRoles(@PathVariable Long userId) {
+        R<Void> authCheck = requireAdmin();
+        if (authCheck != null) {
+            return R.fail(authCheck.getCode(), authCheck.getMsg());
+        }
+
+        List<Long> roleIds = userRoleMapper.selectList(
+                new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId)
+        ).stream().map(SysUserRole::getRoleId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        return R.ok(roleIds);
+    }
+
+    /**
+     * 分配角色（全量替换）
+     */
+    @PutMapping("/{userId}/roles")
+    @Transactional
+    public R<Void> assignRoles(@PathVariable Long userId, @RequestBody List<Long> roleIds) {
+        R<Void> authCheck = requireAdmin();
+        if (authCheck != null) {
+            return authCheck;
+        }
+
+        if (userService.getById(userId) == null) {
+            return R.fail("用户不存在");
+        }
+
+        List<Long> distinctRoleIds = roleIds == null
+                ? Collections.emptyList()
+                : roleIds.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
+
+        if (!distinctRoleIds.isEmpty()) {
+            List<SysRole> existingRoles = roleMapper.selectBatchIds(distinctRoleIds);
+            Set<Long> existingIds = existingRoles.stream()
+                    .map(SysRole::getRoleId).collect(Collectors.toSet());
+            List<Long> missing = distinctRoleIds.stream()
+                    .filter(id -> !existingIds.contains(id)).collect(Collectors.toList());
+            if (!missing.isEmpty()) {
+                return R.fail("角色不存在: " + missing);
+            }
+        }
+
+        userRoleMapper.delete(
+                new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId));
+
+        for (Long roleId : distinctRoleIds) {
+            SysUserRole ur = new SysUserRole();
+            ur.setUserId(userId);
+            ur.setRoleId(roleId);
+            userRoleMapper.insert(ur);
+        }
+        return R.ok(null, "角色分配成功");
+    }
+
+    // ==================== 私有方法 ====================
+
+    /**
+     * 批量填充用户角色信息
+     */
+    private void fillUserRoles(List<SysUser> users) {
+        if (users == null || users.isEmpty()) {
+            return;
+        }
+
+        List<Long> userIds = users.stream().map(SysUser::getUserId).collect(Collectors.toList());
+
+        // 批量查询用户-角色关联
+        List<SysUserRole> userRoles = userRoleMapper.selectList(
+                new LambdaQueryWrapper<SysUserRole>().in(SysUserRole::getUserId, userIds));
+
+        if (userRoles.isEmpty()) {
+            users.forEach(u -> {
+                u.setRoleNames(Collections.emptyList());
+                u.setRoleIds(Collections.emptyList());
+            });
+            return;
+        }
+
+        // 收集所有角色ID并查询角色详情
+        Set<Long> allRoleIds = userRoles.stream()
+                .map(SysUserRole::getRoleId).collect(Collectors.toSet());
+        Map<Long, SysRole> roleMap = roleMapper.selectBatchIds(allRoleIds)
+                .stream().collect(Collectors.toMap(SysRole::getRoleId, r -> r));
+
+        // 按用户分组
+        Map<Long, List<SysUserRole>> groupByUser = userRoles.stream()
+                .collect(Collectors.groupingBy(SysUserRole::getUserId));
+
+        for (SysUser u : users) {
+            List<SysUserRole> urs = groupByUser.getOrDefault(u.getUserId(), Collections.emptyList());
+            List<Long> rids = urs.stream().map(SysUserRole::getRoleId).collect(Collectors.toList());
+            List<String> rnames = urs.stream()
+                    .map(ur -> {
+                        SysRole r = roleMap.get(ur.getRoleId());
+                        return r != null ? r.getRoleKey() : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            u.setRoleIds(rids);
+            u.setRoleNames(rnames);
+        }
+    }
+
+    private String hashPassword(String password) {
+        if (password != null && password.startsWith("$2")) {
+            return password;
+        }
+        return BCrypt.hashpw(password);
+    }
+
+    private R<Void> requireAdmin() {
+        LoginUser loginUser = LoginUserContext.get();
+        if (loginUser == null) {
+            return R.fail(401, "请先登录");
+        }
+        if (!loginUser.hasRole("ADMIN")) {
+            return R.fail(403, "无权限操作");
+        }
+        return null;
     }
 }

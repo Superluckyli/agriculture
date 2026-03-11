@@ -20,6 +20,9 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             "/task/accept",
             "/task/reject");
 
+    private static final Set<String> LOGIN_REQUIRED_PREFIXES = Set.of(
+            "/system/");
+
     private final ISysUserService userService;
     private final ObjectMapper objectMapper;
 
@@ -32,7 +35,8 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
         String token = extractToken(request.getHeader("Authorization"));
-        boolean loginRequired = LOGIN_REQUIRED_PATHS.contains(uri);
+        boolean loginRequired = LOGIN_REQUIRED_PATHS.contains(uri)
+                || LOGIN_REQUIRED_PREFIXES.stream().anyMatch(uri::startsWith);
 
         if (StrUtil.isBlank(token)) {
             if (loginRequired) {

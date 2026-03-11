@@ -40,17 +40,17 @@ INSERT INTO sys_role (role_id, role_name, role_key, create_time) VALUES
 
 -- ----------------------------------------------------------
 -- 2. sys_user（8 个用户）
---    BCrypt(123456) = $2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu.
+--    BCrypt(123456) = $2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm
 -- ----------------------------------------------------------
 INSERT INTO sys_user (user_id, username, password, real_name, phone, dept_name, status, create_time) VALUES
-(1,  'admin',      '123456', '系统管理员', '13800000001', '技术部',   1, NOW()),
-(2,  'farm_owner', '123456', '张大地',     '13800000002', '农场管理部', 1, NOW()),
-(3,  'farmer1',    '123456', '李田一',     '13800000003', '种植一组',  1, NOW()),
-(4,  'farmer2',    '123456', '王田二',     '13800000004', '种植二组',  1, NOW()),
-(5,  'worker1',    '123456', '赵工一',     '13800000005', '作业组',    1, NOW()),
-(6,  'worker2',    '123456', '孙工二',     '13800000006', '作业组',    1, NOW()),
-(7,  'manager',    '123456', '钱经理',     '13800000007', '运营管理部', 1, NOW()),
-(8,  'demo',       '123456', '演示用户',   '13800000008', '演示部门',  1, NOW());
+(1,  'admin',      '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '系统管理员', '13800000001', '技术部',   1, NOW()),
+(2,  'farm_owner', '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '张大地',     '13800000002', '农场管理部', 1, NOW()),
+(3,  'farmer1',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '李田一',     '13800000003', '种植一组',  1, NOW()),
+(4,  'farmer2',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '王田二',     '13800000004', '种植二组',  1, NOW()),
+(5,  'worker1',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '赵工一',     '13800000005', '作业组',    1, NOW()),
+(6,  'worker2',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '孙工二',     '13800000006', '作业组',    1, NOW()),
+(7,  'manager',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '钱经理',     '13800000007', '运营管理部', 1, NOW()),
+(8,  'demo',       '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '演示用户',   '13800000008', '演示部门',  1, NOW());
 
 -- ----------------------------------------------------------
 -- 3. sys_user_role（用户-角色映射）
