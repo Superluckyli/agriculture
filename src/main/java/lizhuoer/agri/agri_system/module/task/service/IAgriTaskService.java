@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.task.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.LoginUser;
 import lizhuoer.agri.agri_system.module.task.domain.AgriTask;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAcceptDTO;
@@ -22,10 +23,22 @@ public interface IAgriTaskService extends IService<AgriTask> {
 
     void rejectTask(TaskRejectDTO dto, LoginUser operator, String traceId);
 
+    void completeTask(Long taskId, LoginUser operator, String traceId);
+
     void updateBasicInfo(TaskUpdateDTO dto, LoginUser operator);
 
     /**
      * Fill task executor/assignee readable names in batch to avoid N+1 lookups.
      */
     void fillTaskUserNames(List<AgriTask> tasks);
+
+    R<AgriTask> reviewTask(Long taskId, boolean approved, String comment);
+
+    R<AgriTask> suspendTask(Long taskId, String reason);
+
+    R<AgriTask> resumeTask(Long taskId);
+
+    R<AgriTask> cancelTask(Long taskId, String reason);
+
+    R<AgriTask> reassignTask(Long taskId, Long newAssigneeId);
 }

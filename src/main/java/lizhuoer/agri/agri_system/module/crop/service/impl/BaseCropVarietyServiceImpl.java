@@ -6,7 +6,14 @@ import lizhuoer.agri.agri_system.module.crop.mapper.BaseCropVarietyMapper;
 import lizhuoer.agri.agri_system.module.crop.service.IBaseCropVarietyService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class BaseCropVarietyServiceImpl extends ServiceImpl<BaseCropVarietyMapper, BaseCropVariety>
         implements IBaseCropVarietyService {
+
+    @Override
+    public List<BaseCropVariety> listAll() {
+        return list();
+    }
 }

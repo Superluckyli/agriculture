@@ -87,4 +87,122 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
             @Param("fromStatus") String fromStatus,
             @Param("toStatus") String toStatus,
             @Param("version") Integer version);
+
+    @Update("""
+            UPDATE agri_task
+            SET status_v2 = #{toStatus},
+                completed_at = #{completedAt},
+                update_time = #{updateTime},
+                update_by = #{operatorId},
+                version = version + 1
+            WHERE task_id = #{taskId}
+              AND status_v2 = #{fromStatus}
+              AND version = #{version}
+            """)
+    int completeTask(@Param("taskId") Long taskId,
+            @Param("operatorId") Long operatorId,
+            @Param("completedAt") LocalDateTime completedAt,
+            @Param("updateTime") LocalDateTime updateTime,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("version") Integer version);
+
+    @Update("""
+            UPDATE agri_task
+            SET status_v2 = #{toStatus},
+                suspend_reason = #{reason},
+                update_time = #{updateTime},
+                update_by = #{operatorId},
+                version = version + 1
+            WHERE task_id = #{taskId}
+              AND status_v2 = #{fromStatus}
+              AND version = #{version}
+            """)
+    int suspendTask(@Param("taskId") Long taskId,
+            @Param("operatorId") Long operatorId,
+            @Param("reason") String reason,
+            @Param("updateTime") LocalDateTime updateTime,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("version") Integer version);
+
+    @Update("""
+            UPDATE agri_task
+            SET status_v2 = #{toStatus},
+                update_time = #{updateTime},
+                update_by = #{operatorId},
+                version = version + 1
+            WHERE task_id = #{taskId}
+              AND status_v2 = #{fromStatus}
+              AND version = #{version}
+            """)
+    int resumeTask(@Param("taskId") Long taskId,
+            @Param("operatorId") Long operatorId,
+            @Param("updateTime") LocalDateTime updateTime,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("version") Integer version);
+
+    @Update("""
+            UPDATE agri_task
+            SET status_v2 = #{toStatus},
+                cancel_reason = #{reason},
+                update_time = #{updateTime},
+                update_by = #{operatorId},
+                version = version + 1
+            WHERE task_id = #{taskId}
+              AND status_v2 = #{fromStatus}
+              AND version = #{version}
+            """)
+    int cancelTask(@Param("taskId") Long taskId,
+            @Param("operatorId") Long operatorId,
+            @Param("reason") String reason,
+            @Param("updateTime") LocalDateTime updateTime,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("version") Integer version);
+
+    @Update("""
+            UPDATE agri_task
+            SET status_v2 = #{toStatus},
+                assignee_id = #{newAssigneeId},
+                assign_time = #{assignTime},
+                assign_by = #{operatorId},
+                accept_time = NULL,
+                accept_by = NULL,
+                reject_time = NULL,
+                reject_by = NULL,
+                reject_reason = NULL,
+                update_time = #{updateTime},
+                update_by = #{operatorId},
+                version = version + 1
+            WHERE task_id = #{taskId}
+              AND status_v2 = #{fromStatus}
+              AND version = #{version}
+            """)
+    int reassignTask(@Param("taskId") Long taskId,
+            @Param("newAssigneeId") Long newAssigneeId,
+            @Param("operatorId") Long operatorId,
+            @Param("assignTime") LocalDateTime assignTime,
+            @Param("updateTime") LocalDateTime updateTime,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("version") Integer version);
+
+    @Update("""
+            UPDATE agri_task
+            SET status_v2 = #{toStatus},
+                update_time = #{updateTime},
+                update_by = #{operatorId},
+                version = version + 1
+            WHERE task_id = #{taskId}
+              AND status_v2 = #{fromStatus}
+              AND version = #{version}
+            """)
+    int reviewTask(@Param("taskId") Long taskId,
+            @Param("operatorId") Long operatorId,
+            @Param("updateTime") LocalDateTime updateTime,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("version") Integer version);
 }

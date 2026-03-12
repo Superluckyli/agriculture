@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/task")
@@ -95,6 +96,47 @@ public class AgriTaskController {
         LoginUser loginUser = LoginUserContext.requireUser();
         taskService.rejectTask(dto, loginUser, request.getHeader("X-Trace-Id"));
         return R.ok();
+    }
+
+    @PostMapping("/{id}/complete")
+    public R<Void> complete(@PathVariable Long id, HttpServletRequest request) {
+        LoginUser loginUser = LoginUserContext.requireUser();
+        taskService.completeTask(id, loginUser, request.getHeader("X-Trace-Id"));
+        return R.ok();
+    }
+
+    @PutMapping("/{id}/review")
+    public R<AgriTask> review(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Boolean approved = (Boolean) body.get("approved");
+        String comment = (String) body.get("comment");
+        if (approved == null) {
+            throw new IllegalArgumentException("approved 不能为空");
+        }
+        return taskService.reviewTask(id, approved, comment);
+    }
+
+    @PutMapping("/{id}/suspend")
+    public R<AgriTask> suspend(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return taskService.suspendTask(id, body.get("reason"));
+    }
+
+    @PutMapping("/{id}/resume")
+    public R<AgriTask> resume(@PathVariable Long id) {
+        return taskService.resumeTask(id);
+    }
+
+    @DeleteMapping("/{id}/cancel")
+    public R<AgriTask> cancel(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return taskService.cancelTask(id, body.get("reason"));
+    }
+
+    @PutMapping("/{id}/reassign")
+    public R<AgriTask> reassign(@PathVariable Long id, @RequestBody Map<String, Long> body) {
+        Long assigneeId = body.get("assigneeId");
+        if (assigneeId == null) {
+            throw new IllegalArgumentException("assigneeId 不能为空");
+        }
+        return taskService.reassignTask(id, assigneeId);
     }
 
     @DeleteMapping("/{ids}")

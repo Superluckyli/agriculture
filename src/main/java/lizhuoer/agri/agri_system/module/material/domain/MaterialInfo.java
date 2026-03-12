@@ -1,9 +1,6 @@
 package lizhuoer.agri.agri_system.module.material.domain;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.Version;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -25,6 +22,10 @@ public class MaterialInfo {
     private BigDecimal safeThreshold;
     private BigDecimal suggestPurchaseQty;
     private Long supplierId;
+
+    @TableField(exist = false)
+    private String supplierName;
+
     private BigDecimal unitPrice;
     private Integer status;
 

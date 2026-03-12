@@ -25,12 +25,24 @@ class AgriTaskServiceImplListUserNameTest {
 
     @Mock
     private ISysUserService userService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.task.material.service.IAgriTaskMaterialService taskMaterialService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.task.log.service.IAgriTaskLogService taskLogService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.material.mapper.MaterialInfoMapper materialInfoMapper;
+    @Mock
+    private lizhuoer.agri.agri_system.module.material.stocklog.service.IMaterialStockLogService stockLogService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderService purchaseOrderService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderItemService purchaseOrderItemService;
 
     private AgriTaskServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new AgriTaskServiceImpl(userService);
+        service = new AgriTaskServiceImpl(userService, taskMaterialService, taskLogService, materialInfoMapper, stockLogService, purchaseOrderService, purchaseOrderItemService);
     }
 
     @Test

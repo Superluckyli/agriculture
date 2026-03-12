@@ -32,24 +32,36 @@ class AgriTaskServiceImplAssignTaskTest {
     private ISysUserService userService;
     @Mock
     private AgriTaskMapper agriTaskMapper;
+    @Mock
+    private lizhuoer.agri.agri_system.module.task.material.service.IAgriTaskMaterialService taskMaterialService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.task.log.service.IAgriTaskLogService taskLogService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.material.mapper.MaterialInfoMapper materialInfoMapper;
+    @Mock
+    private lizhuoer.agri.agri_system.module.material.stocklog.service.IMaterialStockLogService stockLogService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderService purchaseOrderService;
+    @Mock
+    private lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderItemService purchaseOrderItemService;
 
     private AgriTaskServiceImpl service;
     private LoginUser operator;
 
     @BeforeEach
     void setUp() {
-        service = Mockito.spy(new AgriTaskServiceImpl(userService));
+        service = Mockito.spy(new AgriTaskServiceImpl(userService, taskMaterialService, taskLogService, materialInfoMapper, stockLogService, purchaseOrderService, purchaseOrderItemService));
         ReflectionTestUtils.setField(service, "baseMapper", agriTaskMapper);
         operator = new LoginUser(1L, "admin", Set.of("ADMIN"));
     }
 
     @Test
-    void assignTaskShouldSucceedForFarmer() {
-        TaskAssignDTO dto = assignDto(1L, 3L, null);
+    void assignTaskShouldSucceedForWorker() {
+        TaskAssignDTO dto = assignDto(1L, 4L, null);
         doReturn(pendingAcceptTask(1L)).when(service).getById(1L);
-        when(userService.getById(3L)).thenReturn(activeUser(3L));
-        when(userService.getRoleKeys(3L)).thenReturn(Set.of("FARMER"));
-        when(agriTaskMapper.assignTask(eq(1L), eq(3L), eq(1L), isNull(),
+        when(userService.getById(4L)).thenReturn(activeUser(4L));
+        when(userService.getRoleKeys(4L)).thenReturn(Set.of("WORKER"));
+        when(agriTaskMapper.assignTask(eq(1L), eq(4L), eq(1L), isNull(),
                 any(LocalDateTime.class), any(LocalDateTime.class),
                 eq(TaskStatusV2.PENDING_ACCEPT),
                 eq(TaskStatusV2.PENDING_ACCEPT), eq(0)))
@@ -59,26 +71,11 @@ class AgriTaskServiceImplAssignTaskTest {
     }
 
     @Test
-    void assignTaskShouldSucceedForWorkerWithInProgressStatus() {
-        TaskAssignDTO dto = assignDto(1L, 5L, null);
-        doReturn(pendingAcceptTask(1L)).when(service).getById(1L);
-        when(userService.getById(5L)).thenReturn(activeUser(5L));
-        when(userService.getRoleKeys(5L)).thenReturn(Set.of("WORKER"));
-        when(agriTaskMapper.assignTask(eq(1L), eq(5L), eq(1L), isNull(),
-                any(LocalDateTime.class), any(LocalDateTime.class),
-                eq(TaskStatusV2.PENDING_ACCEPT),
-                eq(TaskStatusV2.IN_PROGRESS), eq(0)))
-                .thenReturn(1);
+    void assignTaskShouldFailWhenNotAdminOrFarmOwner() {
+        TaskAssignDTO dto = assignDto(1L, 4L, null);
+        LoginUser worker = new LoginUser(4L, "worker1", Set.of("WORKER"));
 
-        service.assignTask(dto, operator, "trace-assign-worker");
-    }
-
-    @Test
-    void assignTaskShouldFailWhenNotAdmin() {
-        TaskAssignDTO dto = assignDto(1L, 3L, null);
-        LoginUser farmer = new LoginUser(2L, "farmer1", Set.of("FARMER"));
-
-        assertThrows(RuntimeException.class, () -> service.assignTask(dto, farmer, null));
+        assertThrows(RuntimeException.class, () -> service.assignTask(dto, worker, null));
     }
 
     @Test
@@ -87,6 +84,16 @@ class AgriTaskServiceImplAssignTaskTest {
         dto.setTaskId(1L);
 
         assertThrows(IllegalArgumentException.class, () -> service.assignTask(dto, operator, null));
+    }
+
+    @Test
+    void assignTaskShouldFailWhenAssigneeNotWorkerRole() {
+        TaskAssignDTO dto = assignDto(1L, 2L, null);
+        doReturn(pendingAcceptTask(1L)).when(service).getById(1L);
+        when(userService.getById(2L)).thenReturn(activeUser(2L));
+        when(userService.getRoleKeys(2L)).thenReturn(Set.of("FARM_OWNER"));
+
+        assertThrows(RuntimeException.class, () -> service.assignTask(dto, operator, null));
     }
 
     private static TaskAssignDTO assignDto(Long taskId, Long assigneeId, String remark) {

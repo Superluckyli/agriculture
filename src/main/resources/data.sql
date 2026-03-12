@@ -50,7 +50,7 @@ INSERT INTO sys_role (role_id, role_name, role_key, create_time) VALUES
 INSERT INTO sys_user (user_id, username, password, real_name, phone, dept_name, status, create_time) VALUES
 (1, 'admin',      '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '系统管理员', '13800000001', '技术部',   1, NOW()),
 (2, 'farm_owner', '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '李场长',     '13800000002', '农场管理部', 1, NOW()),
-(3, 'tech1',      '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '张技术员',   '13800000003', '技术组',   1, NOW()),
+(3, 'technician1','$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '张技术员',   '13800000003', '技术组',   1, NOW()),
 (4, 'worker1',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '王工人',     '13800000004', '作业一组', 1, NOW()),
 (5, 'worker2',    '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '赵工人',     '13800000005', '作业二组', 1, NOW()),
 (6, 'demo',       '$2a$10$dBOv.8AE0nH4iBICIHQWzOt/u/sfi8pXy1dYiASbbGu/23FEmhRcm', '演示账号',   '13800000006', '演示部门', 1, NOW());
@@ -154,25 +154,23 @@ INSERT INTO agri_crop_batch (id, tenant_id, org_id, batch_no, farmland_id, varie
 
 -- ----------------------------------------------------------
 -- 10. material_info（4 种物资，含安全阈值）
---     同时填充新旧列，确保旧 Java 代码兼容
 -- ----------------------------------------------------------
-INSERT INTO material_info (material_id, tenant_id, org_id, name, category, specification, unit, current_stock, safe_threshold, suggest_purchase_qty, supplier_id, unit_price, status, version, price, stock_quantity, update_time, created_at) VALUES
-(1, 1, 1, '复合肥料', '肥料', '45%含量/50kg袋装', 'kg',  500.00, 100.00, 200.00, 1, 2.40,  1, 0, 120.00, 500.00, NOW(), NOW()),
-(2, 1, 1, '杀虫剂',   '农药', '高效氯氰菊酯/1L瓶', 'L',  200.00, 50.00,  100.00, 1, 85.00, 1, 0, 85.00,  200.00, NOW(), NOW()),
-(3, 1, 1, '灌溉水管', '工具', 'PE管/DN25/4米',     '根', 100.00, 20.00,  50.00,  2, 30.00, 1, 0, 30.00,  100.00, NOW(), NOW()),
-(4, 1, 1, '薄膜地膜', '材料', '0.01mm厚/1米宽',    'm²', 300.00, 50.00,  100.00, 2, 1.50,  1, 0, 15.00,  300.00, NOW(), NOW());
+INSERT INTO material_info (material_id, tenant_id, org_id, name, category, specification, unit, current_stock, safe_threshold, suggest_purchase_qty, supplier_id, unit_price, status, version, created_at) VALUES
+(1, 1, 1, '复合肥料', '肥料', '45%含量/50kg袋装', 'kg',  500.00, 100.00, 200.00, 1, 2.40,  1, 0, NOW()),
+(2, 1, 1, '杀虫剂',   '农药', '高效氯氰菊酯/1L瓶', 'L',  200.00, 50.00,  100.00, 1, 85.00, 1, 0, NOW()),
+(3, 1, 1, '灌溉水管', '工具', 'PE管/DN25/4米',     '根', 100.00, 20.00,  50.00,  2, 30.00, 1, 0, NOW()),
+(4, 1, 1, '薄膜地膜', '材料', '0.01mm厚/1米宽',    'm²', 300.00, 50.00,  100.00, 2, 1.50,  1, 0, NOW());
 
 -- ----------------------------------------------------------
 -- 11. agri_task（12 条任务，覆盖 9 种 V1 状态）
---     status_v2: V1 新状态 (VARCHAR)
---     status:    旧状态 (INT, 兼容现有 Java 代码)
+--     status_v2: V1 唯一状态字段 (VARCHAR)
 --     assign_by=2(farm_owner), reviewer=3(tech1)
 --     assignee_id 指向 worker1(4) 或 worker2(5)
 -- ----------------------------------------------------------
 INSERT INTO agri_task
   (task_id, tenant_id, org_id, batch_id, task_no, task_name, task_type, task_source, risk_level, need_review, priority,
-   plan_time, deadline_at, status_v2, status,
-   executor_id, assignee_id, assign_time, assign_by, assign_remark, reviewer_user_id,
+   plan_time, deadline_at, status_v2,
+   assignee_id, assign_time, assign_by, assign_remark, reviewer_user_id,
    accept_time, accept_by, completed_at,
    reject_time, reject_by, reject_reason, reject_reason_type,
    suspend_reason, cancel_reason, suggest_action, precaution_note,
@@ -180,92 +178,92 @@ INSERT INTO agri_task
 VALUES
 -- pending_review: 高风险任务等待技术员复核 (2 条)
 (1, 1, 1, 1, 'T-2026-001', '水稻田农药喷洒',   '植保', 'manual', 'HIGH', 1, 2,
-  '2026-03-15 08:00:00', '2026-03-16 18:00:00', 'pending_review', 0,
-  NULL, NULL, NULL, NULL, NULL, 3,
+  '2026-03-15 08:00:00', '2026-03-16 18:00:00', 'pending_review',
+  NULL, NULL, NULL, NULL, 3,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, '使用高效氯氰菊酯进行全田喷洒', '注意佩戴防护装备，避开风大时段',
   2, NOW(), NULL, NULL, 0),
 
 (2, 1, 1, 3, 'T-2026-002', '温室大面积消毒处理', '消毒', 'manual', 'HIGH', 1, 2,
-  '2026-03-18 07:00:00', '2026-03-19 18:00:00', 'pending_review', 0,
-  NULL, NULL, NULL, NULL, NULL, 3,
+  '2026-03-18 07:00:00', '2026-03-19 18:00:00', 'pending_review',
+  NULL, NULL, NULL, NULL, 3,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, '全棚消毒，需关闭通风24小时', '消毒期间禁止人员进入',
   2, NOW(), NULL, NULL, 0),
 
 -- pending_accept: 已派发等待工人接单 (2 条)
 (3, 1, 1, 1, 'T-2026-003', '水稻分蘖期除草', '除草', 'manual', 'LOW', 0, 1,
-  '2026-03-08 08:00:00', '2026-03-10 18:00:00', 'pending_accept', 1,
-  NULL, 4, '2026-03-06 10:00:00', 2, '请尽快接单', NULL,
+  '2026-03-08 08:00:00', '2026-03-10 18:00:00', 'pending_accept',
+  4, '2026-03-06 10:00:00', 2, '请尽快接单', NULL,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, '人工除草，注意保护稻苗', NULL,
   2, NOW(), 2, '2026-03-06 10:00:00', 0),
 
 (4, 1, 1, 2, 'T-2026-004', '小麦追肥操作', '施肥', 'manual', 'MEDIUM', 0, 1,
-  '2026-03-09 08:00:00', '2026-03-11 18:00:00', 'pending_accept', 1,
-  NULL, 5, '2026-03-07 09:00:00', 2, '二号旱地追肥', NULL,
+  '2026-03-09 08:00:00', '2026-03-11 18:00:00', 'pending_accept',
+  5, '2026-03-07 09:00:00', 2, '二号旱地追肥', NULL,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, '按每亩15kg追施复合肥', '注意肥料浓度，避免烧苗',
   2, NOW(), 2, '2026-03-07 09:00:00', 0),
 
 -- in_progress: 执行中 (2 条)
 (5, 1, 1, 1, 'T-2026-005', '大田害虫防治',   '植保', 'manual', 'MEDIUM', 0, 1,
-  '2026-03-10 07:00:00', '2026-03-12 18:00:00', 'in_progress', 2,
-  4, 4, '2026-03-08 10:00:00', 2, '优先处理', NULL,
+  '2026-03-10 07:00:00', '2026-03-12 18:00:00', 'in_progress',
+  4, '2026-03-08 10:00:00', 2, '优先处理', NULL,
   '2026-03-08 11:00:00', 4, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, '局部喷洒杀虫剂', '配合防护服使用',
   2, NOW(), 4, '2026-03-08 11:00:00', 0),
 
 (6, 1, 1, 2, 'T-2026-006', '小麦田浇水作业', '灌溉', 'manual', 'LOW', 0, 0,
-  '2026-03-11 06:00:00', '2026-03-13 18:00:00', 'in_progress', 2,
-  5, 5, '2026-03-09 08:00:00', 2, '按计划执行', NULL,
+  '2026-03-11 06:00:00', '2026-03-13 18:00:00', 'in_progress',
+  5, '2026-03-09 08:00:00', 2, '按计划执行', NULL,
   '2026-03-09 09:30:00', 5, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, '全田灌溉', NULL,
   2, NOW(), 5, '2026-03-09 09:30:00', 0),
 
 -- completed: 已完成 (2 条)
 (7, 1, 1, 1, 'T-2026-007', '水稻育苗移栽', '移栽', 'manual', 'LOW', 0, 2,
-  '2026-02-20 07:00:00', '2026-02-25 18:00:00', 'completed', 3,
-  4, 4, '2026-02-15 09:00:00', 2, '提前完成', NULL,
+  '2026-02-20 07:00:00', '2026-02-25 18:00:00', 'completed',
+  4, '2026-02-15 09:00:00', 2, '提前完成', NULL,
   '2026-02-15 10:00:00', 4, '2026-02-20 15:00:00',  NULL, NULL, NULL, NULL,
   NULL, NULL, '移栽至大田', NULL,
   2, NOW(), 4, '2026-02-20 15:00:00', 0),
 
 (8, 1, 1, 2, 'T-2026-008', '小麦越冬期覆盖', '覆盖', 'manual', 'LOW', 0, 1,
-  '2026-02-10 08:00:00', '2026-02-15 18:00:00', 'completed', 3,
-  5, 5, '2026-02-05 10:00:00', 2, '注意保温材料', NULL,
+  '2026-02-10 08:00:00', '2026-02-15 18:00:00', 'completed',
+  5, '2026-02-05 10:00:00', 2, '注意保温材料', NULL,
   '2026-02-05 11:00:00', 5, '2026-02-12 14:00:00',  NULL, NULL, NULL, NULL,
   NULL, NULL, '覆盖地膜保温', NULL,
   2, NOW(), 5, '2026-02-12 14:00:00', 0),
 
 -- rejected_reassign: 因人员原因拒绝待改派 (1 条)
 (9, 1, 1, 1, 'T-2026-009', '稻田排水检查', '巡查', 'manual', 'LOW', 0, 0,
-  '2026-03-05 08:00:00', '2026-03-07 18:00:00', 'rejected_reassign', 5,
-  NULL, 4, '2026-03-03 09:00:00', 2, '检查排水', NULL,
+  '2026-03-05 08:00:00', '2026-03-07 18:00:00', 'rejected_reassign',
+  4, '2026-03-03 09:00:00', 2, '检查排水', NULL,
   NULL, NULL, NULL,  '2026-03-03 14:00:00', 4, '当日有更高优先级任务', 'personnel',
   NULL, NULL, NULL, NULL,
   2, NOW(), 4, '2026-03-03 14:00:00', 0),
 
 -- suspended: 因资源原因挂起 (1 条)
 (10, 1, 1, 3, 'T-2026-010', '温室追肥作业', '施肥', 'manual', 'MEDIUM', 0, 1,
-  '2026-03-12 08:00:00', '2026-03-14 18:00:00', 'suspended', 1,
-  NULL, 5, '2026-03-10 08:00:00', 2, '温室追肥', NULL,
+  '2026-03-12 08:00:00', '2026-03-14 18:00:00', 'suspended',
+  5, '2026-03-10 08:00:00', 2, '温室追肥', NULL,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   '复合肥库存不足，等待补货', NULL, '追施复合肥20kg', '注意温室通风',
   2, NOW(), 5, '2026-03-11 10:00:00', 0),
 
 -- overdue: 已超时 (1 条)
 (11, 1, 1, 2, 'T-2026-011', '旱地排水沟疏通', '维护', 'manual', 'LOW', 0, 0,
-  '2026-02-01 08:00:00', '2026-02-05 18:00:00', 'overdue', 4,
-  NULL, 5, '2026-01-28 10:00:00', 2, '已逾期', NULL,
+  '2026-02-01 08:00:00', '2026-02-05 18:00:00', 'overdue',
+  5, '2026-01-28 10:00:00', 2, '已逾期', NULL,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL,
   2, NOW(), 2, NOW(), 0),
 
 -- cancelled: 已取消 (1 条)
 (12, 1, 1, 1, 'T-2026-012', '冬季大田清理（取消）', '整地', 'manual', 'LOW', 0, 1,
-  '2026-01-25 08:00:00', '2026-01-30 18:00:00', 'cancelled', 0,
-  NULL, NULL, NULL, NULL, NULL, NULL,
+  '2026-01-25 08:00:00', '2026-01-30 18:00:00', 'cancelled',
+  NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL,  NULL, NULL, NULL, NULL,
   NULL, '批次调整，该任务不再需要', NULL, NULL,
   2, NOW(), 2, NOW(), 0);

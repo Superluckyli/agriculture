@@ -32,7 +32,7 @@ public class BaseCropVarietyController {
 
     @GetMapping("/all")
     public R<List<BaseCropVariety>> all() {
-        return R.ok(varietyService.list());
+        return R.ok(varietyService.listAll());
     }
 
     @PostMapping
