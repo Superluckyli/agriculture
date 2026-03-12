@@ -1,5 +1,33 @@
 -- ==========================================
--- 1. System Module
+-- 智慧农业管理系统 V1 — 数据库 Schema
+-- 生成时间: 2026-03-12
+-- 策略: DROP + CREATE 确保结构一致
+-- ==========================================
+
+-- ------------------------------------------
+-- 0. 清理已废弃的旧表 (Phase 1 兼容清理)
+-- ------------------------------------------
+DROP TABLE IF EXISTS material_inout_log;
+DROP TABLE IF EXISTS task_execution_log;
+DROP TABLE IF EXISTS task_flow_log;
+DROP TABLE IF EXISTS growth_stage_log;
+DROP TABLE IF EXISTS crop_batch;
+
+-- 清理将被重建的业务表 (反向依赖顺序)
+DROP TABLE IF EXISTS payment_record;
+DROP TABLE IF EXISTS purchase_order_item;
+DROP TABLE IF EXISTS purchase_order;
+DROP TABLE IF EXISTS material_stock_log;
+DROP TABLE IF EXISTS agri_task_log;
+DROP TABLE IF EXISTS agri_task_material;
+DROP TABLE IF EXISTS agri_task;
+DROP TABLE IF EXISTS agri_crop_batch;
+DROP TABLE IF EXISTS material_info;
+DROP TABLE IF EXISTS supplier_info;
+DROP TABLE IF EXISTS agri_farmland;
+
+-- ==========================================
+-- 1. System Module (保留不变)
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS sys_user (
@@ -45,7 +73,7 @@ CREATE TABLE IF NOT EXISTS sys_role_menu (
 );
 
 -- ==========================================
--- 2. Crop Module
+-- 2. Crop Module — 品种字典 (保留不变)
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS base_crop_variety (
@@ -59,27 +87,285 @@ CREATE TABLE IF NOT EXISTS base_crop_variety (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS crop_batch (
-    batch_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    variety_id BIGINT NOT NULL,
-    plot_id VARCHAR(50) NOT NULL,
-    sowing_date DATE,
-    expected_harvest_date DATE,
-    current_stage VARCHAR(50),
-    is_active INT DEFAULT 1
-);
+-- ==========================================
+-- 3. Crop Module — 农田 (V1 新增)
+-- ==========================================
 
-CREATE TABLE IF NOT EXISTS growth_stage_log (
-    log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    batch_id BIGINT NOT NULL,
-    stage_name VARCHAR(50),
-    log_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    image_url VARCHAR(500),
-    description TEXT
+CREATE TABLE agri_farmland (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    org_id BIGINT NOT NULL DEFAULT 1,
+    name VARCHAR(64) NOT NULL,
+    code VARCHAR(64),
+    location VARCHAR(255),
+    area DECIMAL(10, 2),
+    manager_user_id BIGINT,
+    crop_adapt_note VARCHAR(255),
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1=正常 0=停用',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_farmland_tenant_name (tenant_id, name),
+    INDEX idx_farmland_manager (manager_user_id)
 );
 
 -- ==========================================
--- 3. IoT Module
+-- 4. Supplier Module (V1 新增)
+-- ==========================================
+
+CREATE TABLE supplier_info (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    name VARCHAR(64) NOT NULL,
+    contact_name VARCHAR(64),
+    phone VARCHAR(32),
+    address VARCHAR(255),
+    remark VARCHAR(255),
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1=正常 0=停用',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- 5. Crop Module — 种植批次 (V1 重建，替代旧 crop_batch)
+-- ==========================================
+
+CREATE TABLE agri_crop_batch (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    org_id BIGINT NOT NULL DEFAULT 1,
+    batch_no VARCHAR(64) NOT NULL UNIQUE,
+    farmland_id BIGINT NOT NULL,
+    variety_id BIGINT,
+    crop_variety VARCHAR(64),
+    planting_date DATE,
+    estimated_harvest_date DATE,
+    actual_harvest_date DATE,
+    stage VARCHAR(32) COMMENT '当前生长阶段',
+    status VARCHAR(32) NOT NULL DEFAULT 'not_started' COMMENT 'not_started/in_progress/paused/harvested/abandoned/archived',
+    owner_user_id BIGINT,
+    target_output DECIMAL(12, 2),
+    actual_output DECIMAL(12, 2),
+    abandon_reason VARCHAR(255),
+    remark VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_batch_farmland_status (farmland_id, status),
+    INDEX idx_batch_owner (owner_user_id)
+);
+
+-- ==========================================
+-- 6. Material Module — 物资信息 (V1 重建)
+-- ==========================================
+
+CREATE TABLE material_info (
+    material_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    org_id BIGINT NOT NULL DEFAULT 1,
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(50),
+    specification VARCHAR(64),
+    unit VARCHAR(20),
+    current_stock DECIMAL(12, 3) NOT NULL DEFAULT 0,
+    safe_threshold DECIMAL(12, 3) NOT NULL DEFAULT 0,
+    suggest_purchase_qty DECIMAL(12, 3),
+    supplier_id BIGINT,
+    unit_price DECIMAL(12, 2),
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1=正常 0=停用',
+    version INT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    -- 兼容旧代码的列 (Phase 2 清理)
+    price DECIMAL(10, 2),
+    stock_quantity DECIMAL(10, 2) DEFAULT 0,
+    update_time DATETIME,
+    INDEX idx_material_tenant_name (tenant_id, name),
+    INDEX idx_material_supplier (supplier_id),
+    INDEX idx_material_stock (current_stock, safe_threshold)
+);
+
+-- ==========================================
+-- 7. Task Module — 农事任务 (V1 重建)
+-- ==========================================
+
+CREATE TABLE agri_task (
+    task_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    org_id BIGINT NOT NULL DEFAULT 1,
+    batch_id BIGINT,
+    task_no VARCHAR(64),
+    task_name VARCHAR(100) NOT NULL,
+    task_type VARCHAR(50),
+    task_source VARCHAR(16) NOT NULL DEFAULT 'manual' COMMENT 'manual/rule/ai',
+    risk_level VARCHAR(16) NOT NULL DEFAULT 'LOW' COMMENT 'LOW/MEDIUM/HIGH',
+    need_review TINYINT NOT NULL DEFAULT 0,
+    priority INT DEFAULT 0,
+    plan_time DATETIME,
+    deadline_at DATETIME,
+
+    -- V1 新状态 (VARCHAR)
+    status_v2 VARCHAR(32) NOT NULL DEFAULT 'pending_accept' COMMENT 'pending_review/pending_accept/in_progress/completed/rejected_reassign/rejected_review/suspended/overdue/cancelled',
+
+    -- 旧状态 (INT, 兼容现有 Java 代码, Phase 2 清理)
+    status INT DEFAULT 0 COMMENT '0待分配 1待接单 2已接单 3已完成 4已逾期 5已拒单',
+
+    -- 指派相关
+    executor_id BIGINT COMMENT '兼容旧代码',
+    assignee_id BIGINT,
+    assign_time DATETIME,
+    assign_by BIGINT,
+    assign_remark VARCHAR(255),
+    reviewer_user_id BIGINT,
+
+    -- 接单/完成
+    accept_time DATETIME,
+    accept_by BIGINT,
+    completed_at DATETIME,
+
+    -- 拒绝
+    reject_time DATETIME,
+    reject_by BIGINT,
+    reject_reason VARCHAR(255),
+    reject_reason_type VARCHAR(32) COMMENT 'personnel/resource/environment/task_problem',
+
+    -- 挂起/取消
+    suspend_reason VARCHAR(255),
+    cancel_reason VARCHAR(255),
+
+    -- 建议与注意事项
+    suggest_action TEXT,
+    precaution_note TEXT,
+
+    -- 审计
+    create_by BIGINT,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_by BIGINT,
+    update_time DATETIME,
+    version INT NOT NULL DEFAULT 0,
+
+    INDEX idx_task_batch_status (batch_id, status_v2),
+    INDEX idx_task_assignee (assignee_id, status_v2),
+    INDEX idx_task_deadline (deadline_at),
+    INDEX idx_task_review (need_review, status_v2),
+    INDEX idx_task_no (task_no)
+);
+
+-- ==========================================
+-- 8. Task Module — 任务耗材明细 (V1 新增)
+-- ==========================================
+
+CREATE TABLE agri_task_material (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT NOT NULL,
+    material_id BIGINT NOT NULL,
+    suggested_qty DECIMAL(12, 3),
+    actual_qty DECIMAL(12, 3),
+    unit_price DECIMAL(12, 2),
+    deviation_reason VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_task_material_task (task_id),
+    INDEX idx_task_material_material (material_id)
+);
+
+-- ==========================================
+-- 9. Task Module — 统一任务日志 (V1 新增)
+--    替代旧 task_execution_log + task_flow_log + growth_stage_log
+-- ==========================================
+
+CREATE TABLE agri_task_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT NOT NULL,
+    batch_id BIGINT,
+    action VARCHAR(32) NOT NULL COMMENT 'create/assign/review/accept/reject/start/complete/suspend/resume/cancel/reassign/execute_log',
+    from_status VARCHAR(32),
+    to_status VARCHAR(32),
+    operator_id BIGINT NOT NULL,
+    target_user_id BIGINT,
+    growth_note TEXT,
+    image_urls TEXT,
+    abnormal_note VARCHAR(255),
+    remark VARCHAR(255),
+    trace_id VARCHAR(64),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_task_log_task (task_id, created_at),
+    INDEX idx_task_log_batch (batch_id, created_at)
+);
+
+-- ==========================================
+-- 10. Material Module — 库存流水 (V1 新增，替代旧 material_inout_log)
+-- ==========================================
+
+CREATE TABLE material_stock_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    material_id BIGINT NOT NULL,
+    change_type VARCHAR(32) NOT NULL COMMENT 'OUT/IN/ADJUST/DAMAGE/RETURN',
+    qty DECIMAL(12, 3) NOT NULL,
+    before_stock DECIMAL(12, 3) NOT NULL,
+    after_stock DECIMAL(12, 3) NOT NULL,
+    related_type VARCHAR(32) COMMENT 'task/purchase/manual',
+    related_id BIGINT,
+    operator_id BIGINT,
+    remark VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_stock_log_material (material_id, created_at),
+    INDEX idx_stock_log_related (related_type, related_id)
+);
+
+-- ==========================================
+-- 11. Purchase Module — 采购单 (V1 新增)
+-- ==========================================
+
+CREATE TABLE purchase_order (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    org_id BIGINT NOT NULL DEFAULT 1,
+    order_no VARCHAR(64) NOT NULL UNIQUE,
+    status VARCHAR(32) NOT NULL DEFAULT 'draft' COMMENT 'draft/confirmed/receiving/partial_received/completed/cancelled',
+    supplier_id BIGINT,
+    total_amount DECIMAL(14, 2),
+    pay_method VARCHAR(32),
+    remark VARCHAR(255),
+    created_by BIGINT,
+    confirmed_by BIGINT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_purchase_status (status),
+    INDEX idx_purchase_supplier (supplier_id)
+);
+
+-- ==========================================
+-- 12. Purchase Module — 采购明细 (V1 新增)
+-- ==========================================
+
+CREATE TABLE purchase_order_item (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    purchase_order_id BIGINT NOT NULL,
+    material_id BIGINT NOT NULL,
+    purchase_qty DECIMAL(12, 3),
+    receive_qty DECIMAL(12, 3) DEFAULT 0,
+    unit_price DECIMAL(12, 2),
+    line_amount DECIMAL(14, 2),
+    remark VARCHAR(255),
+    INDEX idx_poi_order (purchase_order_id),
+    INDEX idx_poi_material (material_id)
+);
+
+-- ==========================================
+-- 13. Purchase Module — 支付记录 (V1 新增)
+-- ==========================================
+
+CREATE TABLE payment_record (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    purchase_order_id BIGINT NOT NULL,
+    pay_method VARCHAR(32),
+    pay_amount DECIMAL(14, 2),
+    status VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT 'pending/paid/failed',
+    pay_time DATETIME,
+    operator_id BIGINT,
+    remark VARCHAR(255),
+    INDEX idx_payment_order (purchase_order_id)
+);
+
+-- ==========================================
+-- 14. IoT Module (保留不变，V1.5 使用)
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS iot_sensor_data (
@@ -101,82 +387,4 @@ CREATE TABLE IF NOT EXISTS agri_task_rule (
     auto_task_type VARCHAR(50),
     priority INT DEFAULT 1,
     is_enable INT DEFAULT 1
-);
-
--- ==========================================
--- 4. Task Module
--- ==========================================
-
-CREATE TABLE IF NOT EXISTS agri_task (
-    task_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    batch_id BIGINT,
-    task_name VARCHAR(100) NOT NULL,
-    task_type VARCHAR(50),
-    priority INT DEFAULT 0,
-    plan_time DATETIME,
-    status INT DEFAULT 0 COMMENT '0待分配 1待接单 2已接单 3已完成 4已逾期 5已拒单',
-    executor_id BIGINT COMMENT 'legacy field, compatibility',
-    assignee_id BIGINT COMMENT 'current assigned farmer',
-    assign_time DATETIME,
-    assign_by BIGINT,
-    assign_remark VARCHAR(255),
-    accept_time DATETIME,
-    accept_by BIGINT,
-    reject_time DATETIME,
-    reject_by BIGINT,
-    reject_reason VARCHAR(255),
-    create_by BIGINT,
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_by BIGINT,
-    update_time DATETIME,
-    version INT NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS task_execution_log (
-    log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    task_id BIGINT NOT NULL,
-    actual_start_time DATETIME,
-    actual_end_time DATETIME,
-    status_snapshot INT,
-    photo_url VARCHAR(500),
-    material_cost_json JSON,
-    problem_desc TEXT,
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS task_flow_log (
-    log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    task_id BIGINT NOT NULL,
-    action VARCHAR(20) NOT NULL COMMENT 'assign/accept/reject',
-    from_status INT NOT NULL,
-    to_status INT NOT NULL,
-    operator_id BIGINT NOT NULL,
-    target_user_id BIGINT,
-    remark VARCHAR(255),
-    trace_id VARCHAR(64),
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- ==========================================
--- 5. Material Module
--- ==========================================
-
-CREATE TABLE IF NOT EXISTS material_info (
-    material_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    category VARCHAR(50),
-    price DECIMAL(10, 2),
-    stock_quantity DECIMAL(10, 2) DEFAULT 0,
-    unit VARCHAR(20),
-    update_time DATETIME
-);
-
-CREATE TABLE IF NOT EXISTS material_inout_log (
-    log_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    material_id BIGINT NOT NULL,
-    type INT,
-    quantity DECIMAL(10, 2),
-    related_task_id BIGINT,
-    remark VARCHAR(200),
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
