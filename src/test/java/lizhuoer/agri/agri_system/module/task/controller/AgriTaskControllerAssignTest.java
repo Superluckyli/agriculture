@@ -47,11 +47,11 @@ class AgriTaskControllerAssignTest {
     }
 
     @Test
-    void assignShouldSucceedWithTaskIdAndExecutorId() throws Exception {
+    void assignShouldSucceedWithTaskIdAndAssigneeId() throws Exception {
         String body = """
                 {
                   "taskId": 1,
-                  "executorId": 3
+                  "assigneeId": 3
                 }
                 """;
 
@@ -64,7 +64,7 @@ class AgriTaskControllerAssignTest {
         ArgumentCaptor<TaskAssignDTO> dtoCaptor = ArgumentCaptor.forClass(TaskAssignDTO.class);
         verify(taskService).assignTask(dtoCaptor.capture(), any(LoginUser.class), isNull());
         assertEquals(1L, dtoCaptor.getValue().getTaskId());
-        assertEquals(3L, dtoCaptor.getValue().getExecutorId());
+        assertEquals(3L, dtoCaptor.getValue().getAssigneeId());
         assertNull(dtoCaptor.getValue().getRemark());
     }
 
@@ -73,7 +73,7 @@ class AgriTaskControllerAssignTest {
         String body = """
                 {
                   "taskId": 1,
-                  "executorId": 3,
+                  "assigneeId": 3,
                   "remark": "Dispatch by admin"
                 }
                 """;
@@ -93,7 +93,7 @@ class AgriTaskControllerAssignTest {
     void assignShouldFailWhenTaskIdMissing() throws Exception {
         String body = """
                 {
-                  "executorId": 3
+                  "assigneeId": 3
                 }
                 """;
 
@@ -102,13 +102,13 @@ class AgriTaskControllerAssignTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.msg").value("taskId 和 executorId 不能为空"));
+                .andExpect(jsonPath("$.msg").value("taskId 和 assigneeId 不能为空"));
 
         verify(taskService, never()).assignTask(any(), any(), any());
     }
 
     @Test
-    void assignShouldFailWhenExecutorIdMissing() throws Exception {
+    void assignShouldFailWhenAssigneeIdMissing() throws Exception {
         String body = """
                 {
                   "taskId": 1
@@ -120,26 +120,7 @@ class AgriTaskControllerAssignTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.msg").value("taskId 和 executorId 不能为空"));
-
-        verify(taskService, never()).assignTask(any(), any(), any());
-    }
-
-    @Test
-    void assignShouldFailWhenOnlyFarmerUserIdProvided() throws Exception {
-        String body = """
-                {
-                  "taskId": 1,
-                  "farmerUserId": 3
-                }
-                """;
-
-        mockMvc.perform(put("/task/assign")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.msg").value("taskId 和 executorId 不能为空"));
+                .andExpect(jsonPath("$.msg").value("taskId 和 assigneeId 不能为空"));
 
         verify(taskService, never()).assignTask(any(), any(), any());
     }

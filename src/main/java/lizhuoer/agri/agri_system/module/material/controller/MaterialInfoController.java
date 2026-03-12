@@ -34,14 +34,14 @@ public class MaterialInfoController {
 
     @PostMapping
     public R<Void> add(@RequestBody MaterialInfo info) {
-        info.setUpdateTime(LocalDateTime.now());
+        info.setUpdatedAt(LocalDateTime.now());
         materialInfoService.save(info);
         return R.ok();
     }
 
     @PutMapping
     public R<Void> edit(@RequestBody MaterialInfo info) {
-        info.setUpdateTime(LocalDateTime.now());
+        info.setUpdatedAt(LocalDateTime.now());
         materialInfoService.updateById(info);
         return R.ok();
     }

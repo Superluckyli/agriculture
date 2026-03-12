@@ -60,7 +60,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         task.setTaskType(rule.getAutoTaskType()); // e.g. "灌溉"
         task.setPriority(rule.getPriority());
         task.setPlanTime(LocalDateTime.now().plusHours(2)); // 要求2小时内处理
-        task.setStatus(0); // 待分配
+        task.setStatusV2("pending_accept");
 
         // 绑定批次ID (此处简化，暂时不查CropBatch，实际应根据PlotId反查当前正在种植的BatchId)
         // task.setBatchId(...);

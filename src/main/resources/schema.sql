@@ -173,10 +173,6 @@ CREATE TABLE material_info (
     version INT NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    -- 兼容旧代码的列 (Phase 2 清理)
-    price DECIMAL(10, 2),
-    stock_quantity DECIMAL(10, 2) DEFAULT 0,
-    update_time DATETIME,
     INDEX idx_material_tenant_name (tenant_id, name),
     INDEX idx_material_supplier (supplier_id),
     INDEX idx_material_stock (current_stock, safe_threshold)
@@ -201,14 +197,10 @@ CREATE TABLE agri_task (
     plan_time DATETIME,
     deadline_at DATETIME,
 
-    -- V1 新状态 (VARCHAR)
+    -- 任务状态 (VARCHAR, 唯一状态字段)
     status_v2 VARCHAR(32) NOT NULL DEFAULT 'pending_accept' COMMENT 'pending_review/pending_accept/in_progress/completed/rejected_reassign/rejected_review/suspended/overdue/cancelled',
 
-    -- 旧状态 (INT, 兼容现有 Java 代码, Phase 2 清理)
-    status INT DEFAULT 0 COMMENT '0待分配 1待接单 2已接单 3已完成 4已逾期 5已拒单',
-
     -- 指派相关
-    executor_id BIGINT COMMENT '兼容旧代码',
     assignee_id BIGINT,
     assign_time DATETIME,
     assign_by BIGINT,

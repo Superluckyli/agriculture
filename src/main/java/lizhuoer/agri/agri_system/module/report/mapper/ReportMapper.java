@@ -13,10 +13,10 @@ public interface ReportMapper {
      * 统计各种作物的种植面积/或批次数量（简单起见统计批次数量）
      * 返回 [{name: '小麦', value: 10}, {name: '玉米', value: 5}]
      */
-    @Select("SELECT v.crop_name as name, COUNT(b.batch_id) as value " +
-            "FROM crop_batch b " +
+    @Select("SELECT v.crop_name as name, COUNT(b.id) as value " +
+            "FROM agri_crop_batch b " +
             "LEFT JOIN base_crop_variety v ON b.variety_id = v.variety_id " +
-            "WHERE b.is_active = 1 " +
+            "WHERE b.status != 'archived' " +
             "GROUP BY v.crop_name")
     List<Map<String, Object>> countBatchByCrop();
 

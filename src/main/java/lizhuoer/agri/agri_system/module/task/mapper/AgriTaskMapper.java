@@ -12,9 +12,8 @@ import java.time.LocalDateTime;
 public interface AgriTaskMapper extends BaseMapper<AgriTask> {
     @Update("""
             UPDATE agri_task
-            SET assignee_id = #{executorId},
-                executor_id = #{executorId},
-                status = #{toStatus},
+            SET assignee_id = #{assigneeId},
+                status_v2 = #{toStatus},
                 assign_time = #{assignTime},
                 assign_by = #{operatorId},
                 assign_remark = #{remark},
@@ -27,22 +26,22 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
                 update_by = #{operatorId},
                 version = version + 1
             WHERE task_id = #{taskId}
-              AND status = #{fromStatus}
+              AND status_v2 = #{fromStatus}
               AND version = #{version}
             """)
     int assignTask(@Param("taskId") Long taskId,
-            @Param("executorId") Long executorId,
+            @Param("assigneeId") Long assigneeId,
             @Param("operatorId") Long operatorId,
             @Param("remark") String remark,
             @Param("assignTime") LocalDateTime assignTime,
             @Param("updateTime") LocalDateTime updateTime,
-            @Param("fromStatus") Integer fromStatus,
-            @Param("toStatus") Integer toStatus,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
             @Param("version") Integer version);
 
     @Update("""
             UPDATE agri_task
-            SET status = #{toStatus},
+            SET status_v2 = #{toStatus},
                 accept_time = #{acceptTime},
                 accept_by = #{operatorId},
                 update_time = #{updateTime},
@@ -50,7 +49,7 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
                 version = version + 1
             WHERE task_id = #{taskId}
               AND assignee_id = #{assigneeId}
-              AND status = #{fromStatus}
+              AND status_v2 = #{fromStatus}
               AND version = #{version}
             """)
     int acceptTask(@Param("taskId") Long taskId,
@@ -58,15 +57,14 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
             @Param("operatorId") Long operatorId,
             @Param("acceptTime") LocalDateTime acceptTime,
             @Param("updateTime") LocalDateTime updateTime,
-            @Param("fromStatus") Integer fromStatus,
-            @Param("toStatus") Integer toStatus,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
             @Param("version") Integer version);
 
     @Update("""
             UPDATE agri_task
-            SET status = #{toStatus},
+            SET status_v2 = #{toStatus},
                 assignee_id = NULL,
-                executor_id = NULL,
                 accept_time = NULL,
                 accept_by = NULL,
                 reject_time = #{rejectTime},
@@ -77,7 +75,7 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
                 version = version + 1
             WHERE task_id = #{taskId}
               AND assignee_id = #{assigneeId}
-              AND status = #{fromStatus}
+              AND status_v2 = #{fromStatus}
               AND version = #{version}
             """)
     int rejectTask(@Param("taskId") Long taskId,
@@ -86,7 +84,7 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
             @Param("reason") String reason,
             @Param("rejectTime") LocalDateTime rejectTime,
             @Param("updateTime") LocalDateTime updateTime,
-            @Param("fromStatus") Integer fromStatus,
-            @Param("toStatus") Integer toStatus,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
             @Param("version") Integer version);
 }

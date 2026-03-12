@@ -7,6 +7,6 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskAssignDTO {
     private Long taskId;
-    private Long executorId;
+    private Long assigneeId;
     private String remark;
 }

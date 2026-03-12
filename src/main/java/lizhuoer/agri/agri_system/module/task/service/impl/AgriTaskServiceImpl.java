@@ -6,14 +6,12 @@ import lizhuoer.agri.agri_system.common.security.LoginUser;
 import lizhuoer.agri.agri_system.module.system.domain.SysUser;
 import lizhuoer.agri.agri_system.module.system.service.ISysUserService;
 import lizhuoer.agri.agri_system.module.task.domain.AgriTask;
-import lizhuoer.agri.agri_system.module.task.domain.TaskFlowLog;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAcceptDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAssignDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskRejectDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskUpdateDTO;
-import lizhuoer.agri.agri_system.module.task.domain.enums.TaskStatus;
+import lizhuoer.agri.agri_system.module.task.domain.enums.TaskStatusV2;
 import lizhuoer.agri.agri_system.module.task.mapper.AgriTaskMapper;
-import lizhuoer.agri.agri_system.module.task.mapper.TaskFlowLogMapper;
 import lizhuoer.agri.agri_system.module.task.service.IAgriTaskService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> implements IAgriTaskService {
@@ -33,11 +30,9 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
     private static final String ROLE_WORKER = "WORKER";
 
     private final ISysUserService userService;
-    private final TaskFlowLogMapper taskFlowLogMapper;
 
-    public AgriTaskServiceImpl(ISysUserService userService, TaskFlowLogMapper taskFlowLogMapper) {
+    public AgriTaskServiceImpl(ISysUserService userService) {
         this.userService = userService;
-        this.taskFlowLogMapper = taskFlowLogMapper;
     }
 
     @Override
@@ -46,7 +41,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
-        task.setStatus(TaskStatus.PENDING_ASSIGN.getCode());
+        task.setStatusV2(TaskStatusV2.PENDING_ACCEPT);
         task.setUpdateTime(now);
         task.setVersion(0);
         this.save(task);
@@ -55,59 +50,56 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assignTask(TaskAssignDTO dto, LoginUser operator, String traceId) {
-        if (dto == null || dto.getTaskId() == null || dto.getExecutorId() == null) {
-            throw new IllegalArgumentException("taskId 和 executorId 不能为空");
+        if (dto == null || dto.getTaskId() == null || dto.getAssigneeId() == null) {
+            throw new IllegalArgumentException("taskId 和 assigneeId 不能为空");
         }
-        if (dto.getTaskId() <= 0 || dto.getExecutorId() <= 0) {
-            throw new IllegalArgumentException("taskId 和 executorId 必须大于 0");
+        if (dto.getTaskId() <= 0 || dto.getAssigneeId() <= 0) {
+            throw new IllegalArgumentException("taskId 和 assigneeId 必须大于 0");
         }
         if (operator == null || !operator.hasAnyRole("ADMIN", "FARM_OWNER")) {
             throw new RuntimeException("仅管理员可派单");
         }
 
         AgriTask task = mustGetTask(dto.getTaskId());
-        String executorRoleKey = ensureExecutorValid(dto.getExecutorId());
-        boolean farmerAssignIdempotent = ROLE_FARMER.equals(executorRoleKey)
-                && Objects.equals(task.getStatus(), TaskStatus.PENDING_ACCEPT.getCode())
-                && Objects.equals(task.getAssigneeId(), dto.getExecutorId());
-        boolean workerAssignIdempotent = ROLE_WORKER.equals(executorRoleKey)
-                && Objects.equals(task.getStatus(), TaskStatus.ACCEPTED.getCode())
-                && Objects.equals(task.getAssigneeId(), dto.getExecutorId());
-        if (farmerAssignIdempotent || workerAssignIdempotent) {
+        String assigneeRoleKey = ensureAssigneeValid(dto.getAssigneeId());
+
+        boolean farmerIdempotent = ROLE_FARMER.equals(assigneeRoleKey)
+                && TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())
+                && Objects.equals(task.getAssigneeId(), dto.getAssigneeId());
+        boolean workerIdempotent = ROLE_WORKER.equals(assigneeRoleKey)
+                && TaskStatusV2.IN_PROGRESS.equals(task.getStatusV2())
+                && Objects.equals(task.getAssigneeId(), dto.getAssigneeId());
+        if (farmerIdempotent || workerIdempotent) {
             return;
         }
-        if (!Objects.equals(task.getStatus(), TaskStatus.PENDING_ASSIGN.getCode())) {
-            throw new RuntimeException("仅待分配任务可派单");
+        if (!TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())) {
+            throw new RuntimeException("仅待接单任务可派单");
         }
 
-        int toStatus = ROLE_WORKER.equals(executorRoleKey)
-                ? TaskStatus.ACCEPTED.getCode()
-                : TaskStatus.PENDING_ACCEPT.getCode();
+        String toStatus = ROLE_WORKER.equals(assigneeRoleKey)
+                ? TaskStatusV2.IN_PROGRESS
+                : TaskStatusV2.PENDING_ACCEPT;
         LocalDateTime now = LocalDateTime.now();
         int updated = baseMapper.assignTask(
                 dto.getTaskId(),
-                dto.getExecutorId(),
+                dto.getAssigneeId(),
                 operator.getUserId(),
                 dto.getRemark(),
                 now,
                 now,
-                TaskStatus.PENDING_ASSIGN.getCode(),
+                TaskStatusV2.PENDING_ACCEPT,
                 toStatus,
                 safeVersion(task));
 
         if (updated == 0) {
             AgriTask latest = this.getById(dto.getTaskId());
             if (latest != null
-                    && Objects.equals(latest.getStatus(), toStatus)
-                    && Objects.equals(latest.getAssigneeId(), dto.getExecutorId())) {
+                    && toStatus.equals(latest.getStatusV2())
+                    && Objects.equals(latest.getAssigneeId(), dto.getAssigneeId())) {
                 return;
             }
             throw new RuntimeException("任务状态已变化，派单失败");
         }
-
-        insertFlowLog(dto.getTaskId(), "assign",
-                TaskStatus.PENDING_ASSIGN.getCode(), toStatus,
-                operator.getUserId(), dto.getExecutorId(), dto.getRemark(), traceId, now);
     }
 
     @Override
@@ -127,11 +119,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
 
         AgriTask task = mustGetTask(dto.getTaskId());
-        if (Objects.equals(task.getStatus(), TaskStatus.ACCEPTED.getCode())
+        if (TaskStatusV2.IN_PROGRESS.equals(task.getStatusV2())
                 && Objects.equals(task.getAcceptBy(), operator.getUserId())) {
             return;
         }
-        if (!Objects.equals(task.getStatus(), TaskStatus.PENDING_ACCEPT.getCode())) {
+        if (!TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())) {
             throw new RuntimeException("仅待接单任务可接单");
         }
         if (!Objects.equals(task.getAssigneeId(), operator.getUserId())) {
@@ -145,23 +137,19 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                 operator.getUserId(),
                 now,
                 now,
-                TaskStatus.PENDING_ACCEPT.getCode(),
-                TaskStatus.ACCEPTED.getCode(),
+                TaskStatusV2.PENDING_ACCEPT,
+                TaskStatusV2.IN_PROGRESS,
                 safeVersion(task));
 
         if (updated == 0) {
             AgriTask latest = this.getById(dto.getTaskId());
             if (latest != null
-                    && Objects.equals(latest.getStatus(), TaskStatus.ACCEPTED.getCode())
+                    && TaskStatusV2.IN_PROGRESS.equals(latest.getStatusV2())
                     && Objects.equals(latest.getAcceptBy(), operator.getUserId())) {
                 return;
             }
             throw new RuntimeException("任务状态已变化，接单失败");
         }
-
-        insertFlowLog(dto.getTaskId(), "accept",
-                TaskStatus.PENDING_ACCEPT.getCode(), TaskStatus.ACCEPTED.getCode(),
-                operator.getUserId(), operator.getUserId(), null, traceId, now);
     }
 
     @Override
@@ -181,11 +169,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
 
         AgriTask task = mustGetTask(dto.getTaskId());
-        if (Objects.equals(task.getStatus(), TaskStatus.PENDING_ASSIGN.getCode())
+        if (TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())
                 && Objects.equals(task.getRejectBy(), operator.getUserId())) {
             return;
         }
-        if (!Objects.equals(task.getStatus(), TaskStatus.PENDING_ACCEPT.getCode())) {
+        if (!TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())) {
             throw new RuntimeException("仅待接单任务可拒单");
         }
         if (!Objects.equals(task.getAssigneeId(), operator.getUserId())) {
@@ -200,23 +188,19 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                 dto.getReason(),
                 now,
                 now,
-                TaskStatus.PENDING_ACCEPT.getCode(),
-                TaskStatus.PENDING_ASSIGN.getCode(),
+                TaskStatusV2.PENDING_ACCEPT,
+                TaskStatusV2.REJECTED_REASSIGN,
                 safeVersion(task));
 
         if (updated == 0) {
             AgriTask latest = this.getById(dto.getTaskId());
             if (latest != null
-                    && Objects.equals(latest.getStatus(), TaskStatus.PENDING_ASSIGN.getCode())
+                    && TaskStatusV2.REJECTED_REASSIGN.equals(latest.getStatusV2())
                     && Objects.equals(latest.getRejectBy(), operator.getUserId())) {
                 return;
             }
             throw new RuntimeException("任务状态已变化，拒单失败");
         }
-
-        insertFlowLog(dto.getTaskId(), "reject",
-                TaskStatus.PENDING_ACCEPT.getCode(), TaskStatus.PENDING_ASSIGN.getCode(),
-                operator.getUserId(), operator.getUserId(), dto.getReason(), traceId, now);
     }
 
     @Override
@@ -247,7 +231,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
 
         Set<Long> userIds = tasks.stream()
-                .flatMap(task -> Stream.of(task.getExecutorId(), task.getAssigneeId()))
+                .map(AgriTask::getAssigneeId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
@@ -261,28 +245,8 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                             (left, right) -> left));
         }
 
-        Set<Long> executorIds = tasks.stream()
-                .map(AgriTask::getExecutorId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, String> executorRoleMap = Collections.emptyMap();
-        if (!executorIds.isEmpty()) {
-            executorRoleMap = new java.util.HashMap<>();
-            for (Long executorId : executorIds) {
-                String roleKey = resolveExecutorRoleKeyByUserId(executorId);
-                if (roleKey != null) {
-                    executorRoleMap.put(executorId, roleKey);
-                }
-            }
-        }
-
         for (AgriTask task : tasks) {
-            task.setExecutorName(resolveUserName(task.getExecutorId(), userNameMap));
             task.setAssigneeName(resolveUserName(task.getAssigneeId(), userNameMap));
-
-            String executorRoleKey = resolveUserName(task.getExecutorId(), executorRoleMap);
-            task.setExecutorRoleKey(executorRoleKey);
-            task.setExecutorRoleName(resolveRoleName(executorRoleKey));
         }
     }
 
@@ -294,15 +258,15 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         return task;
     }
 
-    private String ensureExecutorValid(Long executorId) {
-        SysUser executor = userService.getById(executorId);
-        if (executor == null) {
+    private String ensureAssigneeValid(Long assigneeId) {
+        SysUser assignee = userService.getById(assigneeId);
+        if (assignee == null) {
             throw new RuntimeException("派单执行人不存在");
         }
-        if (executor.getStatus() == null || executor.getStatus() != 1) {
+        if (assignee.getStatus() == null || assignee.getStatus() != 1) {
             throw new RuntimeException("派单执行人已禁用");
         }
-        String roleKey = resolveSupportedRoleKey(userService.getRoleKeys(executorId));
+        String roleKey = resolveSupportedRoleKey(userService.getRoleKeys(assigneeId));
         if (roleKey == null) {
             throw new RuntimeException("仅支持派给 FARMER/WORKER");
         }
@@ -311,21 +275,6 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
 
     private int safeVersion(AgriTask task) {
         return task.getVersion() == null ? 0 : task.getVersion();
-    }
-
-    private void insertFlowLog(Long taskId, String action, Integer fromStatus, Integer toStatus,
-            Long operatorId, Long targetUserId, String remark, String traceId, LocalDateTime now) {
-        TaskFlowLog log = new TaskFlowLog();
-        log.setTaskId(taskId);
-        log.setAction(action);
-        log.setFromStatus(fromStatus);
-        log.setToStatus(toStatus);
-        log.setOperatorId(operatorId);
-        log.setTargetUserId(targetUserId);
-        log.setRemark(StrUtil.emptyToDefault(remark, null));
-        log.setTraceId(StrUtil.emptyToDefault(traceId, null));
-        log.setCreateTime(now);
-        taskFlowLogMapper.insert(log);
     }
 
     private String toDisplayName(SysUser user) {
@@ -345,13 +294,6 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         return userNameMap.get(userId);
     }
 
-    private String resolveExecutorRoleKeyByUserId(Long userId) {
-        if (userId == null) {
-            return null;
-        }
-        return resolveSupportedRoleKey(userService.getRoleKeys(userId));
-    }
-
     private String resolveSupportedRoleKey(Set<String> roleKeys) {
         if (roleKeys == null || roleKeys.isEmpty()) {
             return null;
@@ -361,16 +303,6 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
         if (roleKeys.contains(ROLE_WORKER)) {
             return ROLE_WORKER;
-        }
-        return null;
-    }
-
-    private String resolveRoleName(String roleKey) {
-        if (ROLE_FARMER.equals(roleKey)) {
-            return "农户";
-        }
-        if (ROLE_WORKER.equals(roleKey)) {
-            return "工人";
         }
         return null;
     }

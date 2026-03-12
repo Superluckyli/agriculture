@@ -12,7 +12,7 @@ import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAcceptDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAssignDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskRejectDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskUpdateDTO;
-import lizhuoer.agri.agri_system.module.task.domain.enums.TaskStatus;
+import lizhuoer.agri.agri_system.module.task.domain.enums.TaskStatusV2;
 import lizhuoer.agri.agri_system.module.task.service.IAgriTaskService;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,15 +33,13 @@ public class AgriTaskController {
     public R<Page<AgriTask>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String taskName,
-            Integer status,
-            Long executorId,
+            String statusV2,
             Long assigneeId) {
         Page<AgriTask> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<AgriTask> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(StrUtil.isNotBlank(taskName), AgriTask::getTaskName, taskName)
-                .eq(status != null, AgriTask::getStatus, status)
+                .eq(StrUtil.isNotBlank(statusV2), AgriTask::getStatusV2, statusV2)
                 .eq(assigneeId != null, AgriTask::getAssigneeId, assigneeId)
-                .eq(executorId != null, AgriTask::getExecutorId, executorId)
                 .orderByDesc(AgriTask::getPriority)
                 .orderByDesc(AgriTask::getCreateTime);
         Page<AgriTask> taskPage = taskService.page(page, wrapper);
@@ -55,9 +53,8 @@ public class AgriTaskController {
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
-        task.setStatus(TaskStatus.PENDING_ASSIGN.getCode());
+        task.setStatusV2(TaskStatusV2.PENDING_ACCEPT);
         task.setAssigneeId(null);
-        task.setExecutorId(null);
         task.setAssignTime(null);
         task.setAssignBy(null);
         task.setAssignRemark(null);
@@ -72,9 +69,6 @@ public class AgriTaskController {
         return R.ok();
     }
 
-    /**
-     * Basic info update only; status/assignee related fields are intentionally not exposed.
-     */
     @PutMapping
     public R<Void> edit(@RequestBody TaskUpdateDTO dto) {
         taskService.updateBasicInfo(dto, LoginUserContext.get());
@@ -110,11 +104,11 @@ public class AgriTaskController {
     }
 
     private void validateAssignRequest(TaskAssignDTO dto) {
-        if (dto == null || dto.getTaskId() == null || dto.getExecutorId() == null) {
-            throw new IllegalArgumentException("taskId 和 executorId 不能为空");
+        if (dto == null || dto.getTaskId() == null || dto.getAssigneeId() == null) {
+            throw new IllegalArgumentException("taskId 和 assigneeId 不能为空");
         }
-        if (dto.getTaskId() <= 0 || dto.getExecutorId() <= 0) {
-            throw new IllegalArgumentException("taskId 和 executorId 必须大于 0");
+        if (dto.getTaskId() <= 0 || dto.getAssigneeId() <= 0) {
+            throw new IllegalArgumentException("taskId 和 assigneeId 必须大于 0");
         }
     }
 }
