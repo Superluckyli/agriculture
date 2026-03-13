@@ -26,4 +26,7 @@ public interface AgriCropBatchMapper extends BaseMapper<AgriCropBatch> {
                                             @Param("batchNo") String batchNo,
                                             @Param("status") String status,
                                             @Param("farmlandId") Long farmlandId);
+
+    @Select("SELECT id FROM agri_crop_batch WHERE farmland_id = #{farmlandId} AND status IN ('in_progress', 'not_started') ORDER BY created_at DESC LIMIT 1")
+    Long selectActiveBatchIdByFarmlandId(@Param("farmlandId") Long farmlandId);
 }

@@ -80,6 +80,11 @@ public class PurchaseReceiveService {
                     added = true;
                     break;
                 }
+                // 乐观锁冲突退避
+                try { Thread.sleep(20); } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("库存操作被中断", e);
+                }
             }
             if (!added) {
                 throw new RuntimeException("库存更新并发冲突，请重试");

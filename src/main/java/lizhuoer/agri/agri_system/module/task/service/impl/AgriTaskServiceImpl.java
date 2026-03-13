@@ -72,7 +72,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void createAutoTask(AgriTask task) {
+        if (task.getBatchId() == null) {
+            throw new RuntimeException("自动任务必须关联批次");
+        }
         LocalDateTime now = LocalDateTime.now();
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
@@ -83,11 +87,25 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         task.setUpdateTime(now);
         task.setVersion(0);
         this.save(task);
+
+        AgriTaskLog log = new AgriTaskLog();
+        log.setTaskId(task.getTaskId());
+        log.setBatchId(task.getBatchId());
+        log.setAction("create");
+        log.setFromStatus(null);
+        log.setToStatus(task.getStatusV2());
+        log.setOperatorId(0L);
+        log.setRemark("IoT 自动创建");
+        log.setCreatedAt(now);
+        taskLogService.save(log);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createTask(AgriTask task, LoginUser operator) {
+        if (task.getBatchId() == null) {
+            throw new RuntimeException("任务必须关联批次 (batchId)");
+        }
         LocalDateTime now = LocalDateTime.now();
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
@@ -392,6 +410,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                     }
                     deducted = true;
                     break;
+                }
+                // 乐观锁冲突退避
+                try { Thread.sleep(20); } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("库存操作被中断", e);
                 }
             }
             if (!deducted) {

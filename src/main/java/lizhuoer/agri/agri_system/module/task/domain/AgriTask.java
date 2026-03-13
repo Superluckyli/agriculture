@@ -50,6 +50,9 @@ public class AgriTask {
     private String suspendReason;
     private String cancelReason;
 
+    private Long sourceRuleId;
+    private Long sourceFarmlandId;
+
     private String suggestAction;
     private String precautionNote;
 

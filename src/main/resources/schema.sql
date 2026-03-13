@@ -186,7 +186,7 @@ CREATE TABLE agri_task (
     task_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     tenant_id BIGINT NOT NULL DEFAULT 1,
     org_id BIGINT NOT NULL DEFAULT 1,
-    batch_id BIGINT,
+    batch_id BIGINT NOT NULL,
     task_no VARCHAR(64),
     task_name VARCHAR(100) NOT NULL,
     task_type VARCHAR(50),
@@ -222,6 +222,10 @@ CREATE TABLE agri_task (
     suspend_reason VARCHAR(255),
     cancel_reason VARCHAR(255),
 
+    -- IoT 防抖追溯
+    source_rule_id BIGINT COMMENT 'IoT 规则 ID（防抖键）',
+    source_farmland_id BIGINT COMMENT 'IoT 触发地块 ID（防抖键）',
+
     -- 建议与注意事项
     suggest_action TEXT,
     precaution_note TEXT,
@@ -237,7 +241,8 @@ CREATE TABLE agri_task (
     INDEX idx_task_assignee (assignee_id, status_v2),
     INDEX idx_task_deadline (deadline_at),
     INDEX idx_task_review (need_review, status_v2),
-    INDEX idx_task_no (task_no)
+    INDEX idx_task_no (task_no),
+    INDEX idx_task_source_dedup (source_rule_id, source_farmland_id, create_time)
 );
 
 -- ==========================================
