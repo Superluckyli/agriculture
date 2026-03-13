@@ -17,6 +17,11 @@ public interface IAgriTaskService extends IService<AgriTask> {
      */
     void createAutoTask(AgriTask task);
 
+    /**
+     * 手动创建任务（含日志记录）。
+     */
+    void createTask(AgriTask task, LoginUser operator);
+
     void assignTask(TaskAssignDTO dto, LoginUser operator, String traceId);
 
     void acceptTask(TaskAcceptDTO dto, LoginUser operator, String traceId);

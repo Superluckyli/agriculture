@@ -11,6 +11,7 @@ import lizhuoer.agri.agri_system.module.crop.farmland.mapper.AgriFarmlandMapper;
 import lizhuoer.agri.agri_system.module.crop.mapper.BaseCropVarietyMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -33,6 +34,7 @@ public class AgriCropBatchServiceImpl extends ServiceImpl<AgriCropBatchMapper, A
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void createBatch(AgriCropBatch batch) {
         // Validate farmland exists
         AgriFarmland farmland = farmlandMapper.selectById(batch.getFarmlandId());
@@ -52,6 +54,7 @@ public class AgriCropBatchServiceImpl extends ServiceImpl<AgriCropBatchMapper, A
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateBatch(AgriCropBatch batch) {
         if (batch.getFarmlandId() != null) {
             AgriFarmland farmland = farmlandMapper.selectById(batch.getFarmlandId());
@@ -95,6 +98,7 @@ public class AgriCropBatchServiceImpl extends ServiceImpl<AgriCropBatchMapper, A
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void abandonBatch(Long id, String reason) {
         AgriCropBatch batch = getById(id);
         if (batch == null) {

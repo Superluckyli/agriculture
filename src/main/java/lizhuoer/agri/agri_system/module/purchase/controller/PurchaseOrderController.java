@@ -40,18 +40,39 @@ public class PurchaseOrderController {
 
     @PostMapping
     public R<Void> add(@RequestBody PurchaseOrder order) {
+        order.setStatus("draft");
+        order.setConfirmedBy(null);
         orderService.save(order);
         return R.ok();
     }
 
     @PutMapping
     public R<Void> edit(@RequestBody PurchaseOrder order) {
+        if (order.getId() == null) {
+            throw new IllegalArgumentException("id 不能为空");
+        }
+        PurchaseOrder existing = orderService.getById(order.getId());
+        if (existing == null) {
+            throw new RuntimeException("采购单不存在");
+        }
+        if (!"draft".equals(existing.getStatus())) {
+            throw new RuntimeException("仅草稿状态的采购单可编辑");
+        }
+        // 禁止客户端篡改受控字段
+        order.setStatus(null);
+        order.setConfirmedBy(null);
         orderService.updateById(order);
         return R.ok();
     }
 
     @DeleteMapping("/{ids}")
     public R<Void> remove(@PathVariable Long[] ids) {
+        for (Long id : ids) {
+            PurchaseOrder existing = orderService.getById(id);
+            if (existing != null && !"draft".equals(existing.getStatus())) {
+                throw new RuntimeException("仅草稿状态的采购单可删除, orderId=" + id);
+            }
+        }
         orderService.removeBatchByIds(Arrays.asList(ids));
         return R.ok();
     }

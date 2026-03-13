@@ -77,10 +77,52 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
-        task.setStatusV2(TaskStatusV2.PENDING_ACCEPT);
+        task.setStatusV2(task.getNeedReview() != null && task.getNeedReview() == 1
+                ? TaskStatusV2.PENDING_REVIEW
+                : TaskStatusV2.PENDING_ACCEPT);
         task.setUpdateTime(now);
         task.setVersion(0);
         this.save(task);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void createTask(AgriTask task, LoginUser operator) {
+        LocalDateTime now = LocalDateTime.now();
+        if (task.getCreateTime() == null) {
+            task.setCreateTime(now);
+        }
+        String initStatus = task.getNeedReview() != null && task.getNeedReview() == 1
+                ? TaskStatusV2.PENDING_REVIEW
+                : TaskStatusV2.PENDING_ACCEPT;
+        task.setStatusV2(initStatus);
+        task.setAssigneeId(null);
+        task.setAssignTime(null);
+        task.setAssignBy(null);
+        task.setAssignRemark(null);
+        task.setAcceptTime(null);
+        task.setAcceptBy(null);
+        task.setRejectTime(null);
+        task.setRejectBy(null);
+        task.setRejectReason(null);
+        task.setUpdateTime(now);
+        task.setVersion(0);
+        if (operator != null) {
+            task.setCreateBy(operator.getUserId());
+            task.setUpdateBy(operator.getUserId());
+        }
+        this.save(task);
+
+        // Write task log
+        AgriTaskLog log = new AgriTaskLog();
+        log.setTaskId(task.getTaskId());
+        log.setBatchId(task.getBatchId());
+        log.setAction("create");
+        log.setFromStatus(null);
+        log.setToStatus(initStatus);
+        log.setOperatorId(operator != null ? operator.getUserId() : null);
+        log.setCreatedAt(now);
+        taskLogService.save(log);
     }
 
     @Override
@@ -130,6 +172,20 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             }
             throw new RuntimeException("任务状态已变化，派单失败");
         }
+
+        // Write task log
+        AgriTaskLog log = new AgriTaskLog();
+        log.setTaskId(dto.getTaskId());
+        log.setBatchId(task.getBatchId());
+        log.setAction("assign");
+        log.setFromStatus(TaskStatusV2.PENDING_ACCEPT);
+        log.setToStatus(TaskStatusV2.PENDING_ACCEPT);
+        log.setOperatorId(operator.getUserId());
+        log.setTargetUserId(dto.getAssigneeId());
+        log.setRemark(dto.getRemark());
+        log.setTraceId(traceId);
+        log.setCreatedAt(now);
+        taskLogService.save(log);
     }
 
     @Override
@@ -174,6 +230,18 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             }
             throw new RuntimeException("任务状态已变化，接单失败");
         }
+
+        // Write task log
+        AgriTaskLog log = new AgriTaskLog();
+        log.setTaskId(dto.getTaskId());
+        log.setBatchId(task.getBatchId());
+        log.setAction("accept");
+        log.setFromStatus(TaskStatusV2.PENDING_ACCEPT);
+        log.setToStatus(TaskStatusV2.IN_PROGRESS);
+        log.setOperatorId(operator.getUserId());
+        log.setTraceId(traceId);
+        log.setCreatedAt(now);
+        taskLogService.save(log);
     }
 
     @Override
@@ -219,6 +287,19 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             }
             throw new RuntimeException("任务状态已变化，拒单失败");
         }
+
+        // Write task log
+        AgriTaskLog log = new AgriTaskLog();
+        log.setTaskId(dto.getTaskId());
+        log.setBatchId(task.getBatchId());
+        log.setAction("reject");
+        log.setFromStatus(TaskStatusV2.PENDING_ACCEPT);
+        log.setToStatus(TaskStatusV2.REJECTED_REASSIGN);
+        log.setOperatorId(operator.getUserId());
+        log.setRemark(dto.getReason());
+        log.setTraceId(traceId);
+        log.setCreatedAt(now);
+        taskLogService.save(log);
     }
 
     @Override
@@ -292,11 +373,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                     // Write stock log
                     MaterialStockLog sl = new MaterialStockLog();
                     sl.setMaterialId(tm.getMaterialId());
-                    sl.setChangeType("task_consume");
+                    sl.setChangeType("OUT");
                     sl.setQty(qty.negate());
                     sl.setBeforeStock(mat.getCurrentStock());
                     sl.setAfterStock(mat.getCurrentStock().subtract(qty));
-                    sl.setRelatedType("agri_task");
+                    sl.setRelatedType("task");
                     sl.setRelatedId(taskId);
                     sl.setOperatorId(operator.getUserId());
                     sl.setCreatedAt(now);

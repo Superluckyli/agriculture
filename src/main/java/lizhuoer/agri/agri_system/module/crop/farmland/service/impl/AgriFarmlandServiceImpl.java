@@ -11,6 +11,7 @@ import lizhuoer.agri.agri_system.module.crop.farmland.mapper.AgriFarmlandMapper;
 import lizhuoer.agri.agri_system.module.crop.farmland.service.IAgriFarmlandService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -21,6 +22,7 @@ public class AgriFarmlandServiceImpl extends ServiceImpl<AgriFarmlandMapper, Agr
     private AgriCropBatchMapper cropBatchMapper;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void addFarmland(AgriFarmland farmland) {
         long count = count(new LambdaQueryWrapper<AgriFarmland>()
                 .eq(AgriFarmland::getName, farmland.getName()));
@@ -31,6 +33,7 @@ public class AgriFarmlandServiceImpl extends ServiceImpl<AgriFarmlandMapper, Agr
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateFarmland(AgriFarmland farmland) {
         long count = count(new LambdaQueryWrapper<AgriFarmland>()
                 .eq(AgriFarmland::getName, farmland.getName())
@@ -42,6 +45,7 @@ public class AgriFarmlandServiceImpl extends ServiceImpl<AgriFarmlandMapper, Agr
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteFarmland(List<Long> ids) {
         Long refCount = cropBatchMapper.selectCount(new LambdaQueryWrapper<AgriCropBatch>()
                 .in(AgriCropBatch::getFarmlandId, ids));

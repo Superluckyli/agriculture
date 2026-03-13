@@ -68,11 +68,11 @@ public class PurchaseReceiveService {
                 if (rows > 0) {
                     MaterialStockLog sl = new MaterialStockLog();
                     sl.setMaterialId(item.getMaterialId());
-                    sl.setChangeType("purchase_receive");
+                    sl.setChangeType("IN");
                     sl.setQty(remaining);
                     sl.setBeforeStock(mat.getCurrentStock());
                     sl.setAfterStock(mat.getCurrentStock().add(remaining));
-                    sl.setRelatedType("purchase_order");
+                    sl.setRelatedType("purchase");
                     sl.setRelatedId(orderId);
                     sl.setOperatorId(operatorId);
                     sl.setCreatedAt(now);
@@ -90,8 +90,11 @@ public class PurchaseReceiveService {
             itemService.updateById(item);
         }
 
-        order.setStatus("received");
-        order.setUpdatedAt(now);
-        orderService.updateById(order);
+        int ver = order.getVersion() == null ? 0 : order.getVersion();
+        int rows = orderService.casUpdateStatus(
+                orderId, "confirmed", "completed", operatorId, ver);
+        if (rows == 0) {
+            throw new RuntimeException("采购单状态已变化，收货失败（并发冲突）");
+        }
     }
 }

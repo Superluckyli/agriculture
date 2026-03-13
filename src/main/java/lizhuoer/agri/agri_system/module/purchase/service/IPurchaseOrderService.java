@@ -12,6 +12,9 @@ public interface IPurchaseOrderService extends IService<PurchaseOrder> {
     /** 取消采购单: draft -> cancelled */
     PurchaseOrder cancelOrder(Long orderId);
 
+    /** CAS 状态更新，返回影响行数 */
+    int casUpdateStatus(Long id, String fromStatus, String toStatus, Long confirmedBy, Integer version);
+
     /** 分页查询，支持按状态和供应商ID筛选 */
     Page<PurchaseOrder> listPage(Page<PurchaseOrder> page, Long supplierId, String status);
 }

@@ -3,6 +3,7 @@ package lizhuoer.agri.agri_system.module.purchase.domain;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -23,6 +24,8 @@ public class PurchaseOrder {
     private String remark;
     private Long createdBy;
     private Long confirmedBy;
+    @Version
+    private Integer version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

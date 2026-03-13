@@ -23,10 +23,12 @@ public class PurchaseOrderServiceImpl extends ServiceImpl<PurchaseOrderMapper, P
         if (!"draft".equals(order.getStatus())) {
             throw new RuntimeException("当前状态不允许此操作，仅草稿状态可确认");
         }
-        order.setStatus("confirmed");
-        order.setUpdatedAt(LocalDateTime.now());
-        updateById(order);
-        return order;
+        int ver = order.getVersion() == null ? 0 : order.getVersion();
+        int rows = baseMapper.casUpdateStatus(orderId, "draft", "confirmed", null, ver);
+        if (rows == 0) {
+            throw new RuntimeException("采购单状态已变化，确认失败（并发冲突）");
+        }
+        return getById(orderId);
     }
 
     @Override
@@ -38,10 +40,17 @@ public class PurchaseOrderServiceImpl extends ServiceImpl<PurchaseOrderMapper, P
         if (!"draft".equals(order.getStatus())) {
             throw new RuntimeException("当前状态不允许此操作，仅草稿状态可取消");
         }
-        order.setStatus("cancelled");
-        order.setUpdatedAt(LocalDateTime.now());
-        updateById(order);
-        return order;
+        int ver = order.getVersion() == null ? 0 : order.getVersion();
+        int rows = baseMapper.casUpdateStatus(orderId, "draft", "cancelled", null, ver);
+        if (rows == 0) {
+            throw new RuntimeException("采购单状态已变化，取消失败（并发冲突）");
+        }
+        return getById(orderId);
+    }
+
+    @Override
+    public int casUpdateStatus(Long id, String fromStatus, String toStatus, Long confirmedBy, Integer version) {
+        return baseMapper.casUpdateStatus(id, fromStatus, toStatus, confirmedBy, version);
     }
 
     @Override

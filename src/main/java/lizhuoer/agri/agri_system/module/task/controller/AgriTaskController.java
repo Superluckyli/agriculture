@@ -12,11 +12,9 @@ import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAcceptDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAssignDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskRejectDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskUpdateDTO;
-import lizhuoer.agri.agri_system.module.task.domain.enums.TaskStatusV2;
 import lizhuoer.agri.agri_system.module.task.service.IAgriTaskService;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -50,23 +48,8 @@ public class AgriTaskController {
 
     @PostMapping
     public R<Void> add(@RequestBody AgriTask task) {
-        LocalDateTime now = LocalDateTime.now();
-        if (task.getCreateTime() == null) {
-            task.setCreateTime(now);
-        }
-        task.setStatusV2(TaskStatusV2.PENDING_ACCEPT);
-        task.setAssigneeId(null);
-        task.setAssignTime(null);
-        task.setAssignBy(null);
-        task.setAssignRemark(null);
-        task.setAcceptTime(null);
-        task.setAcceptBy(null);
-        task.setRejectTime(null);
-        task.setRejectBy(null);
-        task.setRejectReason(null);
-        task.setUpdateTime(now);
-        task.setVersion(0);
-        taskService.save(task);
+        LoginUser loginUser = LoginUserContext.get();
+        taskService.createTask(task, loginUser);
         return R.ok();
     }
 

@@ -21,9 +21,10 @@ public final class TaskStatusV2 {
     public static final Map<String, Set<String>> TRANSITIONS = Map.of(
             PENDING_REVIEW, Set.of(PENDING_ACCEPT, REJECTED_REVIEW, CANCELLED),
             PENDING_ACCEPT, Set.of(IN_PROGRESS, REJECTED_REASSIGN, CANCELLED, PENDING_ACCEPT),
-            IN_PROGRESS, Set.of(COMPLETED, SUSPENDED),
+            IN_PROGRESS, Set.of(COMPLETED, SUSPENDED, OVERDUE),
             SUSPENDED, Set.of(IN_PROGRESS, CANCELLED),
-            REJECTED_REASSIGN, Set.of(PENDING_ACCEPT)
+            REJECTED_REASSIGN, Set.of(PENDING_ACCEPT),
+            OVERDUE, Set.of(IN_PROGRESS, CANCELLED)
     );
 
     public static boolean isValidTransition(String from, String to) {

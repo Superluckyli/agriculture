@@ -317,6 +317,7 @@ CREATE TABLE purchase_order (
     remark VARCHAR(255),
     created_by BIGINT,
     confirmed_by BIGINT,
+    version INT NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_purchase_status (status),
