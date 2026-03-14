@@ -725,4 +725,64 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
         return userNameMap.get(userId);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int markOverdueTasks(LocalDateTime now) {
+        List<AgriTask> overdueTasks = this.list(new LambdaQueryWrapper<AgriTask>()
+                .isNotNull(AgriTask::getDeadlineAt)
+                .lt(AgriTask::getDeadlineAt, now)
+                .in(AgriTask::getStatusV2,
+                        TaskStatusV2.PENDING_REVIEW,
+                        TaskStatusV2.PENDING_ACCEPT,
+                        TaskStatusV2.IN_PROGRESS));
+
+        if (overdueTasks.isEmpty()) {
+            return 0;
+        }
+
+        for (AgriTask task : overdueTasks) {
+            String fromStatus = task.getStatusV2();
+
+            AgriTask update = new AgriTask();
+            update.setTaskId(task.getTaskId());
+            update.setStatusV2(TaskStatusV2.OVERDUE);
+            update.setUpdateTime(now);
+            this.updateById(update);
+
+            AgriTaskLog log = new AgriTaskLog();
+            log.setTaskId(task.getTaskId());
+            log.setBatchId(task.getBatchId());
+            log.setAction("overdue");
+            log.setFromStatus(fromStatus);
+            log.setToStatus(TaskStatusV2.OVERDUE);
+            log.setOperatorId(0L);
+            log.setRemark("系统自动标记逾期");
+            log.setCreatedAt(now);
+            taskLogService.save(log);
+        }
+
+        return overdueTasks.size();
+    }
+
+    @Override
+    public void deleteTasks(List<Long> ids) {
+        for (Long id : ids) {
+            long materialCount = taskMaterialService.count(new LambdaQueryWrapper<AgriTaskMaterial>()
+                    .eq(AgriTaskMaterial::getTaskId, id));
+            if (materialCount > 0) {
+                AgriTask task = getById(id);
+                String name = task != null ? task.getTaskName() : String.valueOf(id);
+                throw new RuntimeException("任务【" + name + "】存在关联物资记录，无法删除");
+            }
+            long logCount = taskLogService.count(new LambdaQueryWrapper<AgriTaskLog>()
+                    .eq(AgriTaskLog::getTaskId, id));
+            if (logCount > 0) {
+                AgriTask task = getById(id);
+                String name = task != null ? task.getTaskName() : String.valueOf(id);
+                throw new RuntimeException("任务【" + name + "】存在操作日志，无法删除");
+            }
+        }
+        removeBatchByIds(ids);
+    }
 }

@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.material.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -14,9 +15,11 @@ public class MaterialInfo {
 
     private Long tenantId;
     private Long orgId;
+    @NotBlank(message = "物资名称不能为空")
     private String name;
     private String category;
     private String specification;
+    @NotBlank(message = "计量单位不能为空")
     private String unit;
     private BigDecimal currentStock;
     private BigDecimal safeThreshold;

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -17,7 +19,9 @@ public class AgriCropBatch {
     private Long id;
     private Long tenantId;
     private Long orgId;
+    @NotBlank(message = "批次号不能为空")
     private String batchNo;
+    @NotNull(message = "农田ID不能为空")
     private Long farmlandId;
     private Long varietyId;
     private String cropVariety;

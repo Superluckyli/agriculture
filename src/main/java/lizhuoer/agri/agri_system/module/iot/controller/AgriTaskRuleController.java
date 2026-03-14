@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.iot.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.iot.domain.AgriTaskRule;
 import lizhuoer.agri.agri_system.module.iot.service.IAgriTaskRuleService;
@@ -22,13 +23,13 @@ public class AgriTaskRuleController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody AgriTaskRule rule) {
+    public R<Void> add(@Valid @RequestBody AgriTaskRule rule) {
         ruleService.save(rule);
         return R.ok();
     }
 
     @PutMapping
-    public R<Void> edit(@RequestBody AgriTaskRule rule) {
+    public R<Void> edit(@Valid @RequestBody AgriTaskRule rule) {
         ruleService.updateById(rule);
         return R.ok();
     }

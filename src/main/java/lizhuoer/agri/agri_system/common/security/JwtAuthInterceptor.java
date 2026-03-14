@@ -11,18 +11,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.util.Set;
-
+/**
+ * JWT 认证拦截器 — deny-by-default，所有路径强制鉴权
+ * 公开路径 (/login, /register, /error, /actuator/**) 在 WebMvcConfig 中排除
+ */
 @Component
 public class JwtAuthInterceptor implements HandlerInterceptor {
-    private static final Set<String> LOGIN_REQUIRED_PATHS = Set.of(
-            "/task/assign",
-            "/task/accept",
-            "/task/reject");
-
-    private static final Set<String> LOGIN_REQUIRED_PREFIXES = Set.of(
-            "/system/");
-
     private final ISysUserService userService;
     private final ObjectMapper objectMapper;
 
@@ -33,38 +27,27 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        String uri = request.getRequestURI();
         String token = extractToken(request.getHeader("Authorization"));
-        boolean loginRequired = LOGIN_REQUIRED_PATHS.contains(uri)
-                || LOGIN_REQUIRED_PREFIXES.stream().anyMatch(uri::startsWith);
 
         if (StrUtil.isBlank(token)) {
-            if (loginRequired) {
-                writeUnauthorized(response, "请先登录");
-                return false;
-            }
-            return true;
+            writeUnauthorized(response, "请先登录");
+            return false;
         }
 
         JwtTokenUtil.TokenPayload payload = JwtTokenUtil.parseAndVerify(token);
         if (payload == null) {
-            if (loginRequired) {
-                writeUnauthorized(response, "登录已过期，请重新登录");
-                return false;
-            }
-            return true;
+            writeUnauthorized(response, "登录已过期，请重新登录");
+            return false;
         }
 
         SysUser user = userService.getById(payload.userId());
         if (user == null || user.getStatus() == null || user.getStatus() != 1) {
-            if (loginRequired) {
-                writeUnauthorized(response, "用户不存在或已禁用");
-                return false;
-            }
-            return true;
+            writeUnauthorized(response, "用户不存在或已禁用");
+            return false;
         }
 
-        LoginUserContext.set(new LoginUser(user.getUserId(), user.getUsername(), userService.getRoleKeys(user.getUserId())));
+        LoginUserContext.set(new LoginUser(user.getUserId(), user.getUsername(),
+                userService.getRoleKeys(user.getUserId())));
         return true;
     }
 

@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.supplier.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.supplier.domain.SupplierInfo;
 import lizhuoer.agri.agri_system.module.supplier.service.ISupplierInfoService;
@@ -31,13 +32,13 @@ public class SupplierInfoController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody SupplierInfo supplier) {
+    public R<Void> add(@Valid @RequestBody SupplierInfo supplier) {
         supplierService.addSupplier(supplier);
         return R.ok();
     }
 
     @PutMapping
-    public R<Void> edit(@RequestBody SupplierInfo supplier) {
+    public R<Void> edit(@Valid @RequestBody SupplierInfo supplier) {
         supplierService.updateSupplier(supplier);
         return R.ok();
     }

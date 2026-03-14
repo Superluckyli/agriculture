@@ -1,5 +1,6 @@
 package lizhuoer.agri.agri_system.module.crop.batch.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lizhuoer.agri.agri_system.module.crop.batch.domain.AgriCropBatch;
@@ -7,6 +8,8 @@ import lizhuoer.agri.agri_system.module.crop.batch.mapper.AgriCropBatchMapper;
 import lizhuoer.agri.agri_system.module.crop.batch.service.IAgriCropBatchService;
 import lizhuoer.agri.agri_system.module.crop.domain.BaseCropVariety;
 import lizhuoer.agri.agri_system.module.crop.farmland.domain.AgriFarmland;
+import lizhuoer.agri.agri_system.module.task.domain.AgriTask;
+import lizhuoer.agri.agri_system.module.task.mapper.AgriTaskMapper;
 import lizhuoer.agri.agri_system.module.crop.farmland.mapper.AgriFarmlandMapper;
 import lizhuoer.agri.agri_system.module.crop.mapper.BaseCropVarietyMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,9 @@ public class AgriCropBatchServiceImpl extends ServiceImpl<AgriCropBatchMapper, A
 
     @Autowired
     private BaseCropVarietyMapper varietyMapper;
+
+    @Autowired
+    private AgriTaskMapper agriTaskMapper;
 
     // State transition matrix: status -> allowed next statuses
     private static final Map<String, Set<String>> STATE_TRANSITIONS = new HashMap<>();
@@ -74,6 +80,15 @@ public class AgriCropBatchServiceImpl extends ServiceImpl<AgriCropBatchMapper, A
 
     @Override
     public void deleteBatch(List<Long> ids) {
+        for (Long id : ids) {
+            long taskCount = agriTaskMapper.selectCount(new LambdaQueryWrapper<AgriTask>()
+                    .eq(AgriTask::getBatchId, id));
+            if (taskCount > 0) {
+                AgriCropBatch batch = getById(id);
+                String name = batch != null ? batch.getBatchNo() : String.valueOf(id);
+                throw new RuntimeException("批次【" + name + "】存在关联任务，无法删除");
+            }
+        }
         removeBatchByIds(ids);
     }
 

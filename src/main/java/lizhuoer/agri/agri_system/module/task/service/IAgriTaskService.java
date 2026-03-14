@@ -9,9 +9,15 @@ import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAssignDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskRejectDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskUpdateDTO;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface IAgriTaskService extends IService<AgriTask> {
+    /**
+     * 扫描并标记逾期任务（deadline_at < now 且状态为 pending_review/pending_accept/in_progress）。
+     * @return 标记数量
+     */
+    int markOverdueTasks(LocalDateTime now);
     /**
      * Auto-create task from IoT rule.
      */
@@ -46,4 +52,6 @@ public interface IAgriTaskService extends IService<AgriTask> {
     R<AgriTask> cancelTask(Long taskId, String reason);
 
     R<AgriTask> reassignTask(Long taskId, Long newAssigneeId);
+
+    void deleteTasks(List<Long> ids);
 }

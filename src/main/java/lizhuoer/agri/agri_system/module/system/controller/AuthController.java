@@ -1,14 +1,16 @@
 package lizhuoer.agri.agri_system.module.system.controller;
 
-import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.JwtTokenUtil;
 import lizhuoer.agri.agri_system.module.system.domain.SysRole;
 import lizhuoer.agri.agri_system.module.system.domain.SysUser;
 import lizhuoer.agri.agri_system.module.system.domain.SysUserRole;
 import lizhuoer.agri.agri_system.module.system.domain.dto.LoginBody;
+import lizhuoer.agri.agri_system.module.system.domain.dto.RegisterRequest;
+import lizhuoer.agri.agri_system.module.system.domain.vo.LoginResponseVO;
 import lizhuoer.agri.agri_system.module.system.mapper.SysRoleMapper;
 import lizhuoer.agri.agri_system.module.system.mapper.SysUserRoleMapper;
 import lizhuoer.agri.agri_system.module.system.service.ISysUserService;
@@ -17,8 +19,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -39,11 +39,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public R<Map<String, Object>> login(@RequestBody LoginBody loginBody) {
-        if (loginBody == null || StrUtil.isBlank(loginBody.getUsername()) || StrUtil.isBlank(loginBody.getPassword())) {
-            return R.fail("用户名或密码不能为空");
-        }
-
+    public R<LoginResponseVO> login(@Valid @RequestBody LoginBody loginBody) {
         SysUser user = userService.getOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getUsername, loginBody.getUsername()));
 
@@ -68,22 +64,27 @@ public class AuthController {
         String token = JwtTokenUtil.generateToken(user.getUserId(), user.getUsername());
         Set<String> roleKeys = userService.getRoleKeys(user.getUserId());
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("token", token);
-        data.put("user", user);
-        data.put("roles", roleKeys);
-        return R.ok(data, "登录成功");
+        LoginResponseVO.UserVO userVO = new LoginResponseVO.UserVO();
+        userVO.setUserId(user.getUserId());
+        userVO.setUsername(user.getUsername());
+        userVO.setRealName(user.getRealName());
+        userVO.setPhone(user.getPhone());
+        userVO.setDeptName(user.getDeptName());
+        userVO.setStatus(user.getStatus());
+
+        LoginResponseVO vo = new LoginResponseVO();
+        vo.setToken(token);
+        vo.setUser(userVO);
+        vo.setRoles(roleKeys);
+
+        return R.ok(vo, "登录成功");
     }
 
     @PostMapping("/register")
     @Transactional
-    public R<Void> register(@RequestBody SysUser user) {
-        if (user == null || StrUtil.isBlank(user.getUsername()) || StrUtil.isBlank(user.getPassword())) {
-            return R.fail("用户名或密码不能为空");
-        }
-
+    public R<Void> register(@Valid @RequestBody RegisterRequest req) {
         if (userService.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, user.getUsername())) > 0) {
+                .eq(SysUser::getUsername, req.getUsername())) > 0) {
             return R.fail("账号已存在");
         }
 
@@ -92,10 +93,12 @@ public class AuthController {
             return R.fail("系统配置异常，请联系管理员");
         }
 
-        user.setUserId(null);
-        user.setPassword(BCrypt.hashpw(user.getPassword()));
+        SysUser user = new SysUser();
+        user.setUsername(req.getUsername());
+        user.setPassword(BCrypt.hashpw(req.getPassword()));
+        user.setRealName(req.getRealName());
+        user.setPhone(req.getPhone());
         user.setStatus(1);
-        user.setCreateTime(null);
         userService.save(user);
 
         SysUserRole userRole = new SysUserRole();

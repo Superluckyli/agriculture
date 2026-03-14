@@ -384,5 +384,6 @@ CREATE TABLE IF NOT EXISTS agri_task_rule (
     max_val DECIMAL(10, 2),
     auto_task_type VARCHAR(50),
     priority INT DEFAULT 1,
-    is_enable INT DEFAULT 1
+    is_enable INT DEFAULT 1,
+    cooldown_minutes INT DEFAULT 60
 );

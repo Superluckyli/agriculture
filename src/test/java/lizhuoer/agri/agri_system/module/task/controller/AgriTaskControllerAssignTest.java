@@ -101,8 +101,7 @@ class AgriTaskControllerAssignTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.msg").value("taskId 和 assigneeId 不能为空"));
+                .andExpect(jsonPath("$.code").value(400));
 
         verify(taskService, never()).assignTask(any(), any(), any());
     }
@@ -119,8 +118,7 @@ class AgriTaskControllerAssignTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.msg").value("taskId 和 assigneeId 不能为空"));
+                .andExpect(jsonPath("$.code").value(400));
 
         verify(taskService, never()).assignTask(any(), any(), any());
     }

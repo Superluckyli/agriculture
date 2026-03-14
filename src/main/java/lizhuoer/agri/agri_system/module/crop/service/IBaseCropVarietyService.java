@@ -8,4 +8,6 @@ import java.util.List;
 public interface IBaseCropVarietyService extends IService<BaseCropVariety> {
 
     List<BaseCropVariety> listAll();
+
+    void deleteVarieties(List<Long> ids);
 }

@@ -3,6 +3,7 @@ package lizhuoer.agri.agri_system.module.crop.controller;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.crop.domain.BaseCropVariety;
 import lizhuoer.agri.agri_system.module.crop.service.IBaseCropVarietyService;
@@ -36,21 +37,21 @@ public class BaseCropVarietyController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody BaseCropVariety variety) {
+    public R<Void> add(@Valid @RequestBody BaseCropVariety variety) {
         variety.setCreateTime(null);
         varietyService.save(variety);
         return R.ok();
     }
 
     @PutMapping
-    public R<Void> edit(@RequestBody BaseCropVariety variety) {
+    public R<Void> edit(@Valid @RequestBody BaseCropVariety variety) {
         varietyService.updateById(variety);
         return R.ok();
     }
 
     @DeleteMapping("/{ids}")
     public R<Void> remove(@PathVariable Long[] ids) {
-        varietyService.removeBatchByIds(Arrays.asList(ids));
+        varietyService.deleteVarieties(Arrays.asList(ids));
         return R.ok();
     }
 }

@@ -7,8 +7,8 @@ spring:
   datasource:
     # 默认开发环境数据库配置，请根据实际情况修改
     url: jdbc:mysql://localhost:3306/agri_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
-    username: root
-    password: lizhuoer513
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:lizhuoer513}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
@@ -25,3 +25,7 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
+
+jwt:
+  secret: ${JWT_SECRET:AgriSystemKey_123456}
+  ttl-hours: ${JWT_TTL_HOURS:24}

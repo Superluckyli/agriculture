@@ -7,8 +7,12 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lizhuoer.agri.agri_system.module.material.domain.MaterialInfo;
 import lizhuoer.agri.agri_system.module.material.mapper.MaterialInfoMapper;
 import lizhuoer.agri.agri_system.module.material.service.IMaterialInfoService;
+import lizhuoer.agri.agri_system.module.purchase.domain.PurchaseOrderItem;
+import lizhuoer.agri.agri_system.module.purchase.mapper.PurchaseOrderItemMapper;
 import lizhuoer.agri.agri_system.module.supplier.domain.SupplierInfo;
 import lizhuoer.agri.agri_system.module.supplier.mapper.SupplierInfoMapper;
+import lizhuoer.agri.agri_system.module.task.material.domain.AgriTaskMaterial;
+import lizhuoer.agri.agri_system.module.task.material.mapper.AgriTaskMaterialMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +28,12 @@ public class MaterialInfoServiceImpl extends ServiceImpl<MaterialInfoMapper, Mat
 
     @Autowired
     private SupplierInfoMapper supplierInfoMapper;
+
+    @Autowired
+    private PurchaseOrderItemMapper purchaseOrderItemMapper;
+
+    @Autowired
+    private AgriTaskMaterialMapper agriTaskMaterialMapper;
 
     @Override
     public void addMaterial(MaterialInfo info) {
@@ -71,6 +81,16 @@ public class MaterialInfoServiceImpl extends ServiceImpl<MaterialInfoMapper, Mat
             if (material.getCurrentStock() != null
                     && material.getCurrentStock().compareTo(BigDecimal.ZERO) != 0) {
                 throw new RuntimeException("物资【" + material.getName() + "】库存不为零，无法删除");
+            }
+            long poiCount = purchaseOrderItemMapper.selectCount(new LambdaQueryWrapper<PurchaseOrderItem>()
+                    .eq(PurchaseOrderItem::getMaterialId, id));
+            if (poiCount > 0) {
+                throw new RuntimeException("物资【" + material.getName() + "】已被采购订单引用，无法删除");
+            }
+            long tmCount = agriTaskMaterialMapper.selectCount(new LambdaQueryWrapper<AgriTaskMaterial>()
+                    .eq(AgriTaskMaterial::getMaterialId, id));
+            if (tmCount > 0) {
+                throw new RuntimeException("物资【" + material.getName() + "】已被任务物资引用，无法删除");
             }
         }
         removeBatchByIds(ids);

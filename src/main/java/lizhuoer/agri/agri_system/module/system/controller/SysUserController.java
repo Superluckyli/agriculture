@@ -13,6 +13,8 @@ import lizhuoer.agri.agri_system.module.system.domain.SysUserRole;
 import lizhuoer.agri.agri_system.module.system.mapper.SysRoleMapper;
 import lizhuoer.agri.agri_system.module.system.mapper.SysUserRoleMapper;
 import lizhuoer.agri.agri_system.module.system.service.ISysUserService;
+import jakarta.validation.Valid;
+import lizhuoer.agri.agri_system.module.system.domain.dto.PasswordChangeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -166,6 +168,61 @@ public class SysUserController {
             userRoleMapper.insert(ur);
         }
         return R.ok(null, "角色分配成功");
+    }
+
+    // ==================== 个人中心 ====================
+
+    /**
+     * 更新个人资料 (realName / phone / deptName)
+     */
+    @PutMapping("/profile")
+    public R<SysUser> updateProfile(@RequestBody SysUser dto) {
+        LoginUser loginUser = LoginUserContext.get();
+        if (loginUser == null) {
+            return R.fail(401, "请先登录");
+        }
+
+        SysUser existing = userService.getById(loginUser.getUserId());
+        if (existing == null) {
+            return R.fail("用户不存在");
+        }
+
+        SysUser update = new SysUser();
+        update.setUserId(loginUser.getUserId());
+        if (dto.getRealName() != null) update.setRealName(dto.getRealName());
+        if (dto.getPhone() != null) update.setPhone(dto.getPhone());
+        if (dto.getDeptName() != null) update.setDeptName(dto.getDeptName());
+        userService.updateById(update);
+
+        SysUser updated = userService.getById(loginUser.getUserId());
+        updated.setPassword(null);
+        return R.ok(updated);
+    }
+
+    /**
+     * 修改密码 (需验证旧密码)
+     */
+    @PutMapping("/password")
+    public R<Void> changePassword(@Valid @RequestBody PasswordChangeRequest req) {
+        LoginUser loginUser = LoginUserContext.get();
+        if (loginUser == null) {
+            return R.fail(401, "请先登录");
+        }
+
+        SysUser existing = userService.getById(loginUser.getUserId());
+        if (existing == null) {
+            return R.fail("用户不存在");
+        }
+
+        if (!BCrypt.checkpw(req.getOldPassword(), existing.getPassword())) {
+            return R.fail("旧密码不正确");
+        }
+
+        SysUser update = new SysUser();
+        update.setUserId(loginUser.getUserId());
+        update.setPassword(BCrypt.hashpw(req.getNewPassword()));
+        userService.updateById(update);
+        return R.ok(null, "密码修改成功");
     }
 
     // ==================== 私有方法 ====================

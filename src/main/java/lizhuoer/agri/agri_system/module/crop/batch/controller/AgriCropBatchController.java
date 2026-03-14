@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.crop.batch.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.crop.batch.domain.AgriCropBatch;
 import lizhuoer.agri.agri_system.module.crop.batch.service.IAgriCropBatchService;
@@ -25,13 +26,13 @@ public class AgriCropBatchController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody AgriCropBatch batch) {
+    public R<Void> add(@Valid @RequestBody AgriCropBatch batch) {
         batchService.createBatch(batch);
         return R.ok();
     }
 
     @PutMapping
-    public R<Void> edit(@RequestBody AgriCropBatch batch) {
+    public R<Void> edit(@Valid @RequestBody AgriCropBatch batch) {
         batchService.updateBatch(batch);
         return R.ok();
     }

@@ -2,11 +2,15 @@ package lizhuoer.agri.agri_system.module.purchase.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
 import lizhuoer.agri.agri_system.module.purchase.domain.PaymentRecord;
 import lizhuoer.agri.agri_system.module.purchase.domain.PurchaseOrder;
 import lizhuoer.agri.agri_system.module.purchase.domain.PurchaseOrderItem;
+import lizhuoer.agri.agri_system.module.purchase.domain.dto.PaymentCreateRequest;
+import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderCreateRequest;
+import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderItemCreateRequest;
 import lizhuoer.agri.agri_system.module.purchase.service.IPaymentRecordService;
 import lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderItemService;
 import lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderService;
@@ -39,7 +43,12 @@ public class PurchaseOrderController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody PurchaseOrder order) {
+    public R<Void> add(@Valid @RequestBody PurchaseOrderCreateRequest req) {
+        PurchaseOrder order = new PurchaseOrder();
+        order.setSupplierId(req.getSupplierId());
+        order.setTotalAmount(req.getTotalAmount());
+        order.setPayMethod(req.getPayMethod());
+        order.setRemark(req.getRemark());
         order.setStatus("draft");
         order.setConfirmedBy(null);
         orderService.save(order);
@@ -58,7 +67,6 @@ public class PurchaseOrderController {
         if (!"draft".equals(existing.getStatus())) {
             throw new RuntimeException("仅草稿状态的采购单可编辑");
         }
-        // 禁止客户端篡改受控字段
         order.setStatus(null);
         order.setConfirmedBy(null);
         orderService.updateById(order);
@@ -67,13 +75,7 @@ public class PurchaseOrderController {
 
     @DeleteMapping("/{ids}")
     public R<Void> remove(@PathVariable Long[] ids) {
-        for (Long id : ids) {
-            PurchaseOrder existing = orderService.getById(id);
-            if (existing != null && !"draft".equals(existing.getStatus())) {
-                throw new RuntimeException("仅草稿状态的采购单可删除, orderId=" + id);
-            }
-        }
-        orderService.removeBatchByIds(Arrays.asList(ids));
+        orderService.deleteOrders(Arrays.asList(ids));
         return R.ok();
     }
 
@@ -97,8 +99,15 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{orderId}/items")
-    public R<Void> addItem(@PathVariable Long orderId, @RequestBody PurchaseOrderItem item) {
+    public R<Void> addItem(@PathVariable Long orderId,
+                           @Valid @RequestBody PurchaseOrderItemCreateRequest req) {
+        PurchaseOrderItem item = new PurchaseOrderItem();
         item.setPurchaseOrderId(orderId);
+        item.setMaterialId(req.getMaterialId());
+        item.setPurchaseQty(req.getPurchaseQty());
+        item.setUnitPrice(req.getUnitPrice());
+        item.setLineAmount(req.getPurchaseQty().multiply(req.getUnitPrice()));
+        item.setRemark(req.getRemark());
         itemService.save(item);
         return R.ok();
     }
@@ -111,8 +120,9 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{orderId}/payment")
-    public R<PaymentRecord> addPayment(@PathVariable Long orderId, @RequestBody PaymentRecord payment) {
-        return R.ok(paymentService.addPayment(orderId, payment.getPayAmount(), payment.getPayMethod()));
+    public R<PaymentRecord> addPayment(@PathVariable Long orderId,
+                                       @Valid @RequestBody PaymentCreateRequest req) {
+        return R.ok(paymentService.addPayment(orderId, req.getPayAmount(), req.getPayMethod()));
     }
 
     @PostMapping("/{orderId}/receive")

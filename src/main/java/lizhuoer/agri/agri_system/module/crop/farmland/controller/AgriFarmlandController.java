@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.crop.farmland.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.crop.farmland.domain.AgriFarmland;
 import lizhuoer.agri.agri_system.module.crop.farmland.service.IAgriFarmlandService;
@@ -31,13 +32,13 @@ public class AgriFarmlandController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody AgriFarmland farmland) {
+    public R<Void> add(@Valid @RequestBody AgriFarmland farmland) {
         farmlandService.addFarmland(farmland);
         return R.ok();
     }
 
     @PutMapping
-    public R<Void> edit(@RequestBody AgriFarmland farmland) {
+    public R<Void> edit(@Valid @RequestBody AgriFarmland farmland) {
         farmlandService.updateFarmland(farmland);
         return R.ok();
     }

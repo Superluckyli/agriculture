@@ -1,6 +1,7 @@
 package lizhuoer.agri.agri_system.module.material.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.material.domain.MaterialInfo;
 import lizhuoer.agri.agri_system.module.material.service.IMaterialInfoService;
@@ -36,13 +37,13 @@ public class MaterialInfoController {
     }
 
     @PostMapping
-    public R<Void> add(@RequestBody MaterialInfo info) {
+    public R<Void> add(@Valid @RequestBody MaterialInfo info) {
         materialInfoService.addMaterial(info);
         return R.ok();
     }
 
     @PutMapping
-    public R<Void> edit(@RequestBody MaterialInfo info) {
+    public R<Void> edit(@Valid @RequestBody MaterialInfo info) {
         materialInfoService.updateMaterial(info);
         return R.ok();
     }

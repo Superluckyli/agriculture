@@ -72,14 +72,16 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
             return;
         }
 
-        // 1 小时防抖：同一 rule + 同一 farmland，1 小时内不重复创建
+        // 可配置防抖：同一 rule + 同一 farmland，冷却时间内不重复创建
+        int cooldown = (rule.getCooldownMinutes() != null && rule.getCooldownMinutes() > 0)
+                ? rule.getCooldownMinutes() : 60;
         long recentCount = taskService.count(new LambdaQueryWrapper<AgriTask>()
                 .eq(AgriTask::getSourceRuleId, rule.getRuleId())
                 .eq(AgriTask::getSourceFarmlandId, farmlandId)
-                .ge(AgriTask::getCreateTime, LocalDateTime.now().minusHours(1)));
+                .ge(AgriTask::getCreateTime, LocalDateTime.now().minusMinutes(cooldown)));
         if (recentCount > 0) {
-            log.debug("IoT 防抖: rule={} farmland={} 1小时内已有任务，跳过",
-                    rule.getRuleId(), farmlandId);
+            log.debug("IoT 防抖: rule={} farmland={} {}分钟内已有任务，跳过",
+                    rule.getRuleId(), farmlandId, cooldown);
             return;
         }
 
