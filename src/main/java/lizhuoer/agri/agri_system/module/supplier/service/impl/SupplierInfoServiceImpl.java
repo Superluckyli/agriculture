@@ -12,6 +12,8 @@ import lizhuoer.agri.agri_system.module.supplier.domain.SupplierInfo;
 import lizhuoer.agri.agri_system.module.supplier.mapper.SupplierInfoMapper;
 import lizhuoer.agri.agri_system.module.supplier.service.ISupplierInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class SupplierInfoServiceImpl extends ServiceImpl<SupplierInfoMapper, Sup
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "suppliers", allEntries = true)
     public void addSupplier(SupplierInfo supplier) {
         long count = count(new LambdaQueryWrapper<SupplierInfo>()
                 .eq(SupplierInfo::getName, supplier.getName()));
@@ -39,6 +42,7 @@ public class SupplierInfoServiceImpl extends ServiceImpl<SupplierInfoMapper, Sup
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "suppliers", allEntries = true)
     public void updateSupplier(SupplierInfo supplier) {
         long count = count(new LambdaQueryWrapper<SupplierInfo>()
                 .eq(SupplierInfo::getName, supplier.getName())
@@ -51,6 +55,7 @@ public class SupplierInfoServiceImpl extends ServiceImpl<SupplierInfoMapper, Sup
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "suppliers", allEntries = true)
     public void deleteSupplier(List<Long> ids) {
         Long materialRef = materialInfoMapper.selectCount(new LambdaQueryWrapper<MaterialInfo>()
                 .in(MaterialInfo::getSupplierId, ids));
@@ -74,6 +79,7 @@ public class SupplierInfoServiceImpl extends ServiceImpl<SupplierInfoMapper, Sup
     }
 
     @Override
+    @Cacheable(value = "suppliers", key = "'all'")
     public List<SupplierInfo> listAll() {
         return list();
     }

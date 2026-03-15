@@ -8,6 +8,8 @@ import lizhuoer.agri.agri_system.module.crop.domain.BaseCropVariety;
 import lizhuoer.agri.agri_system.module.crop.mapper.BaseCropVarietyMapper;
 import lizhuoer.agri.agri_system.module.crop.service.IBaseCropVarietyService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,11 +22,13 @@ public class BaseCropVarietyServiceImpl extends ServiceImpl<BaseCropVarietyMappe
     private AgriCropBatchMapper cropBatchMapper;
 
     @Override
+    @Cacheable(value = "crop_varieties", key = "'all'")
     public List<BaseCropVariety> listAll() {
         return list();
     }
 
     @Override
+    @CacheEvict(value = "crop_varieties", allEntries = true)
     public void deleteVarieties(List<Long> ids) {
         for (Long id : ids) {
             long refCount = cropBatchMapper.selectCount(new LambdaQueryWrapper<AgriCropBatch>()

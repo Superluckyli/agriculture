@@ -1,0 +1,27 @@
+# Test profile: H2 in-memory database, Flyway disabled
+spring:
+  datasource:
+    url: jdbc:h2:mem:agri_test;MODE=MYSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+      encoding: UTF-8
+      continue-on-error: true
+  flyway:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+
+jwt:
+  secret: TestSecretKey_123456
+  ttl-hours: 24

@@ -5,18 +5,20 @@ spring:
   application:
     name: agri-system
   datasource:
-    # 默认开发环境数据库配置，请根据实际情况修改
     url: jdbc:mysql://localhost:3306/agri_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:lizhuoer513}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
-      mode: always
-      schema-locations: classpath:schema.sql
-      data-locations: classpath:data.sql
-      encoding: UTF-8
-      continue-on-error: true
+      mode: never
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: '0'
+    encoding: UTF-8
+    validate-on-migrate: true
 
 mybatis-plus:
   configuration:

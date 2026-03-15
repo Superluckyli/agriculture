@@ -2,10 +2,15 @@ package lizhuoer.agri.agri_system.module.system.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
+import lizhuoer.agri.agri_system.common.security.AuditLog;
+import lizhuoer.agri.agri_system.common.security.RequirePermission;
 import lizhuoer.agri.agri_system.module.system.domain.SysRole;
 import lizhuoer.agri.agri_system.module.system.service.ISysRoleService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -19,36 +24,46 @@ public class SysRoleController {
     private ISysRoleService roleService;
 
     @GetMapping("/list")
-    public R<Page<SysRole>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<SysRole>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String roleName) {
         Page<SysRole> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(roleName != null, SysRole::getRoleName, roleName);
-        return R.ok(roleService.page(page, wrapper));
+        return R.ok(PageResult.from(roleService.page(page, wrapper)));
     }
 
     /**
      * 查询全部角色（不分页，用于下拉/checkbox）
      */
     @GetMapping("/all")
+    @Cacheable(value = "sys_roles", key = "'all'")
     public R<List<SysRole>> all() {
         return R.ok(roleService.list());
     }
 
     @PostMapping
+    @CacheEvict(value = "sys_roles", allEntries = true)
+    @RequirePermission(roles = {"ADMIN"})
+    @AuditLog(module = "系统管理", action = "CREATE", target = "角色")
     public R<Void> add(@RequestBody SysRole role) {
         roleService.save(role);
         return R.ok();
     }
 
     @PutMapping
+    @CacheEvict(value = "sys_roles", allEntries = true)
+    @RequirePermission(roles = {"ADMIN"})
+    @AuditLog(module = "系统管理", action = "UPDATE", target = "角色")
     public R<Void> edit(@RequestBody SysRole role) {
         roleService.updateById(role);
         return R.ok();
     }
 
     @DeleteMapping("/{roleIds}")
+    @CacheEvict(value = "sys_roles", allEntries = true)
+    @RequirePermission(roles = {"ADMIN"})
+    @AuditLog(module = "系统管理", action = "DELETE", target = "角色")
     public R<Void> remove(@PathVariable Long[] roleIds) {
         return roleService.deleteRoles(Arrays.asList(roleIds));
     }

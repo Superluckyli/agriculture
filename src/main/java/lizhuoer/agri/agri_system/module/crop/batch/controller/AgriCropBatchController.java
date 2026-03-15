@@ -2,6 +2,7 @@ package lizhuoer.agri.agri_system.module.crop.batch.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.crop.batch.domain.AgriCropBatch;
 import lizhuoer.agri.agri_system.module.crop.batch.service.IAgriCropBatchService;
@@ -18,11 +19,11 @@ public class AgriCropBatchController {
     private IAgriCropBatchService batchService;
 
     @GetMapping("/list")
-    public R<Page<AgriCropBatch>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<AgriCropBatch>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String batchNo, String status, Long farmlandId) {
         Page<AgriCropBatch> page = new Page<>(pageNum, pageSize);
-        return R.ok(batchService.listPage(page, batchNo, status, farmlandId));
+        return R.ok(PageResult.from(batchService.listPage(page, batchNo, status, farmlandId)));
     }
 
     @PostMapping

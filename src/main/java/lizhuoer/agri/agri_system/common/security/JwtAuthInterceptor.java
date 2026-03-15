@@ -9,11 +9,15 @@ import lizhuoer.agri.agri_system.module.system.domain.SysUser;
 import lizhuoer.agri.agri_system.module.system.service.ISysUserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * JWT 认证拦截器 — deny-by-default，所有路径强制鉴权
- * 公开路径 (/login, /register, /error, /actuator/**) 在 WebMvcConfig 中排除
+ * JWT 认证 + 权限拦截器
+ * <p>
+ * 1. deny-by-default: 所有路径强制 JWT 鉴权（公开路径在 WebMvcConfig 中排除）
+ * 2. @RequirePermission: 方法级角色校验，满足任一角色即放行
+ * 3. Actuator 保护: /actuator/** (非 health/info) 仅 ADMIN 可访问
  */
 @Component
 public class JwtAuthInterceptor implements HandlerInterceptor {
@@ -46,8 +50,30 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        LoginUserContext.set(new LoginUser(user.getUserId(), user.getUsername(),
-                userService.getRoleKeys(user.getUserId())));
+        LoginUser loginUser = new LoginUser(user.getUserId(), user.getUsername(),
+                userService.getRoleKeys(user.getUserId()));
+        LoginUserContext.set(loginUser);
+
+        // Actuator 端点保护: 非 health/info 需要 ADMIN 角色
+        String uri = request.getRequestURI();
+        if (uri.startsWith("/actuator/") && !uri.equals("/actuator/health") && !uri.equals("/actuator/info")) {
+            if (!loginUser.hasRole("ADMIN")) {
+                writeForbidden(response, "无权访问管理端点");
+                return false;
+            }
+        }
+
+        // @RequirePermission 方法级角色校验
+        if (handler instanceof HandlerMethod handlerMethod) {
+            RequirePermission rp = handlerMethod.getMethodAnnotation(RequirePermission.class);
+            if (rp != null && rp.roles().length > 0) {
+                if (!loginUser.hasAnyRole(rp.roles())) {
+                    writeForbidden(response, "无权限操作");
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 
@@ -71,5 +97,11 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write(objectMapper.writeValueAsString(R.fail(HttpStatus.UNAUTHORIZED.value(), msg)));
+    }
+
+    private void writeForbidden(HttpServletResponse response, String msg) throws Exception {
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(objectMapper.writeValueAsString(R.fail(HttpStatus.FORBIDDEN.value(), msg)));
     }
 }

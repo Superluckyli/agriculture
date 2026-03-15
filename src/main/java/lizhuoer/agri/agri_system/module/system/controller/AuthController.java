@@ -2,9 +2,12 @@ package lizhuoer.agri.agri_system.module.system.controller;
 
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
+import lizhuoer.agri.agri_system.common.security.AuditLog;
 import lizhuoer.agri.agri_system.common.security.JwtTokenUtil;
+import lizhuoer.agri.agri_system.common.security.LoginThrottleService;
 import lizhuoer.agri.agri_system.module.system.domain.SysRole;
 import lizhuoer.agri.agri_system.module.system.domain.SysUser;
 import lizhuoer.agri.agri_system.module.system.domain.SysUserRole;
@@ -29,21 +32,36 @@ public class AuthController {
     private final ISysUserService userService;
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleMapper roleMapper;
+    private final LoginThrottleService throttleService;
 
     public AuthController(ISysUserService userService,
                           SysUserRoleMapper userRoleMapper,
-                          SysRoleMapper roleMapper) {
+                          SysRoleMapper roleMapper,
+                          LoginThrottleService throttleService) {
         this.userService = userService;
         this.userRoleMapper = userRoleMapper;
         this.roleMapper = roleMapper;
+        this.throttleService = throttleService;
     }
 
     @PostMapping("/login")
-    public R<LoginResponseVO> login(@Valid @RequestBody LoginBody loginBody) {
+    @AuditLog(module = "认证", action = "LOGIN", target = "用户登录")
+    public R<LoginResponseVO> login(@Valid @RequestBody LoginBody loginBody,
+                                     HttpServletRequest request) {
+        String ip = resolveClientIp(request);
+        String username = loginBody.getUsername();
+
+        // 限流检查: 5 次失败后锁定 15 分钟
+        long lockedSeconds = throttleService.checkLocked(ip, username);
+        if (lockedSeconds > 0) {
+            return R.fail("登录尝试过于频繁，请 " + lockedSeconds + " 秒后重试");
+        }
+
         SysUser user = userService.getOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, loginBody.getUsername()));
+                .eq(SysUser::getUsername, username));
 
         if (user == null) {
+            throttleService.recordFailure(ip, username);
             return R.fail("用户不存在");
         }
 
@@ -54,12 +72,16 @@ public class AuthController {
             passwordOk = false;
         }
         if (!passwordOk) {
+            throttleService.recordFailure(ip, username);
             return R.fail("密码错误");
         }
 
         if (user.getStatus() == null || user.getStatus() != 1) {
             return R.fail("用户已被禁用");
         }
+
+        // 登录成功，清除限流记录
+        throttleService.clearRecord(ip, username);
 
         String token = JwtTokenUtil.generateToken(user.getUserId(), user.getUsername());
         Set<String> roleKeys = userService.getRoleKeys(user.getUserId());
@@ -114,5 +136,19 @@ public class AuthController {
                 .eq(SysRole::getRoleKey, DEFAULT_ROLE_KEY)
                 .last("LIMIT 1"));
         return role != null ? role.getRoleId() : null;
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("X-Real-IP");
+        }
+        if (ip == null || ip.isBlank() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        if (ip != null && ip.contains(",")) {
+            ip = ip.substring(0, ip.indexOf(",")).trim();
+        }
+        return ip;
     }
 }

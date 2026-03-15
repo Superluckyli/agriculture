@@ -4,6 +4,7 @@ import lizhuoer.agri.agri_system.module.report.domain.ChartDataVO;
 import lizhuoer.agri.agri_system.module.report.mapper.ReportMapper;
 import lizhuoer.agri.agri_system.module.report.service.IReportService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ public class ReportServiceImpl implements IReportService {
     private ReportMapper reportMapper;
 
     @Override
+    @Cacheable(value = "dashboard", key = "'data'")
     public Map<String, Object> getDashboardData() {
         Map<String, Object> result = new HashMap<>();
 

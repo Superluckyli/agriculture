@@ -81,7 +81,7 @@ class PurchaseOrderControllerTest {
         mockMvc.perform(get("/purchase/list"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.records").isArray());
+                .andExpect(jsonPath("$.data.items").isArray());
     }
 
     @Test
@@ -157,7 +157,7 @@ class PurchaseOrderControllerTest {
         mockMvc.perform(put("/purchase")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isOk())
+                .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value(500));
 
         verify(orderService, never()).updateById(any());
@@ -178,7 +178,7 @@ class PurchaseOrderControllerTest {
                 .when(orderService).deleteOrders(any());
 
         mockMvc.perform(delete("/purchase/1"))
-                .andExpect(status().isOk())
+                .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value(500));
     }
 

@@ -5,9 +5,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
+import lizhuoer.agri.agri_system.common.security.AuditLog;
 import lizhuoer.agri.agri_system.common.security.LoginUser;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
+import lizhuoer.agri.agri_system.common.security.RequirePermission;
 import lizhuoer.agri.agri_system.module.task.domain.AgriTask;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAcceptDTO;
 import lizhuoer.agri.agri_system.module.task.domain.dto.TaskAssignDTO;
@@ -31,7 +34,7 @@ public class AgriTaskController {
     }
 
     @GetMapping("/list")
-    public R<Page<AgriTask>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<AgriTask>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String taskName,
             String statusV2,
@@ -45,7 +48,7 @@ public class AgriTaskController {
                 .orderByDesc(AgriTask::getCreateTime);
         Page<AgriTask> taskPage = taskService.page(page, wrapper);
         taskService.fillTaskUserNames(taskPage.getRecords());
-        return R.ok(taskPage);
+        return R.ok(PageResult.from(taskPage));
     }
 
     @PostMapping
@@ -69,27 +72,32 @@ public class AgriTaskController {
     }
 
     @PutMapping("/assign")
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER"})
+    @AuditLog(module = "任务管理", action = "ASSIGN", target = "任务")
     public R<Void> assign(@Valid @RequestBody TaskAssignDTO dto, HttpServletRequest request) {
         LoginUser loginUser = LoginUserContext.requireUser();
         taskService.assignTask(dto, loginUser, request.getHeader("X-Trace-Id"));
         return R.ok();
     }
 
-    @PostMapping("/accept")
-    public R<Void> accept(@Valid @RequestBody TaskAcceptDTO dto, HttpServletRequest request) {
+    @PutMapping("/{id}/accept")
+    public R<Void> accept(@PathVariable Long id, HttpServletRequest request) {
         LoginUser loginUser = LoginUserContext.requireUser();
+        TaskAcceptDTO dto = new TaskAcceptDTO();
+        dto.setTaskId(id);
         taskService.acceptTask(dto, loginUser, request.getHeader("X-Trace-Id"));
         return R.ok();
     }
 
-    @PostMapping("/reject")
-    public R<Void> reject(@Valid @RequestBody TaskRejectDTO dto, HttpServletRequest request) {
+    @PutMapping("/{id}/reject")
+    public R<Void> reject(@PathVariable Long id, @Valid @RequestBody TaskRejectDTO dto, HttpServletRequest request) {
         LoginUser loginUser = LoginUserContext.requireUser();
+        dto.setTaskId(id);
         taskService.rejectTask(dto, loginUser, request.getHeader("X-Trace-Id"));
         return R.ok();
     }
 
-    @PostMapping("/{id}/complete")
+    @PutMapping("/{id}/complete")
     public R<Void> complete(@PathVariable Long id, HttpServletRequest request) {
         LoginUser loginUser = LoginUserContext.requireUser();
         taskService.completeTask(id, loginUser, request.getHeader("X-Trace-Id"));
@@ -116,12 +124,13 @@ public class AgriTaskController {
         return taskService.resumeTask(id);
     }
 
-    @DeleteMapping("/{id}/cancel")
+    @PutMapping("/{id}/cancel")
     public R<AgriTask> cancel(@PathVariable Long id, @RequestBody Map<String, String> body) {
         return taskService.cancelTask(id, body.get("reason"));
     }
 
     @PutMapping("/{id}/reassign")
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER"})
     public R<AgriTask> reassign(@PathVariable Long id, @RequestBody Map<String, Long> body) {
         Long assigneeId = body.get("assigneeId");
         if (assigneeId == null) {
@@ -131,6 +140,8 @@ public class AgriTaskController {
     }
 
     @DeleteMapping("/{ids}")
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER"})
+    @AuditLog(module = "任务管理", action = "DELETE", target = "任务")
     public R<Void> remove(@PathVariable Long[] ids) {
         taskService.deleteTasks(Arrays.asList(ids));
         return R.ok();

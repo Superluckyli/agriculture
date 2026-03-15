@@ -4,6 +4,8 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lizhuoer.agri.agri_system.common.domain.R;
+import lizhuoer.agri.agri_system.common.exception.BusinessException;
+import lizhuoer.agri.agri_system.common.exception.ErrorCode;
 import lizhuoer.agri.agri_system.common.security.LoginUser;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
 import lizhuoer.agri.agri_system.module.material.domain.MaterialInfo;
@@ -336,6 +338,26 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
         if (!Objects.equals(task.getAssigneeId(), operator.getUserId())) {
             throw new RuntimeException("仅被派单工人可完成任务");
+        }
+
+        // 前置条件 1: 必须至少有一条执行日志
+        long execLogCount = taskLogService.count(
+                new LambdaQueryWrapper<AgriTaskLog>()
+                        .eq(AgriTaskLog::getTaskId, taskId)
+                        .eq(AgriTaskLog::getAction, "execute_log"));
+        if (execLogCount == 0) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "完成任务前必须填写至少一条执行日志");
+        }
+
+        // 前置条件 2: 关联物料的实际用量必须已确认
+        LambdaQueryWrapper<AgriTaskMaterial> preCheckWrapper = new LambdaQueryWrapper<>();
+        preCheckWrapper.eq(AgriTaskMaterial::getTaskId, taskId);
+        List<AgriTaskMaterial> preMaterials = taskMaterialService.list(preCheckWrapper);
+        for (AgriTaskMaterial tm : preMaterials) {
+            if (tm.getActualQty() == null) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST,
+                        "物料 (ID=" + tm.getMaterialId() + ") 实际用量未确认，请先填写实际用量");
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();

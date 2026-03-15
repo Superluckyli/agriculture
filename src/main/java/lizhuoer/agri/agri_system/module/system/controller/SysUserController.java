@@ -4,9 +4,12 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.LoginUser;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
+import lizhuoer.agri.agri_system.common.security.AuditLog;
+import lizhuoer.agri.agri_system.common.security.RequirePermission;
 import lizhuoer.agri.agri_system.module.system.domain.SysRole;
 import lizhuoer.agri.agri_system.module.system.domain.SysUser;
 import lizhuoer.agri.agri_system.module.system.domain.SysUserRole;
@@ -42,7 +45,8 @@ public class SysUserController {
      * 分页查询用户（附带角色信息）
      */
     @GetMapping("/list")
-    public R<Page<SysUser>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER"})
+    public R<PageResult<SysUser>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             SysUser user) {
         Page<SysUser> page = new Page<>(pageNum, pageSize);
@@ -55,7 +59,7 @@ public class SysUserController {
 
         fillUserRoles(result.getRecords());
 
-        return R.ok(result);
+        return R.ok(PageResult.from(result));
     }
 
     /**
@@ -70,6 +74,8 @@ public class SysUserController {
      * 新增用户
      */
     @PostMapping
+    @RequirePermission(roles = {"ADMIN"})
+    @AuditLog(module = "系统管理", action = "CREATE", target = "用户")
     public R<Void> add(@RequestBody SysUser user) {
         if (userService.count(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, user.getUsername())) > 0) {
             return R.fail("新增用户'" + user.getUsername() + "'失败，账号已存在");
@@ -87,6 +93,7 @@ public class SysUserController {
      * 修改用户
      */
     @PutMapping
+    @RequirePermission(roles = {"ADMIN"})
     public R<Void> edit(@RequestBody SysUser user) {
         if (user.getPassword() != null) {
             if (StrUtil.isBlank(user.getPassword())) {
@@ -103,6 +110,8 @@ public class SysUserController {
      * 删除用户
      */
     @DeleteMapping("/{userIds}")
+    @RequirePermission(roles = {"ADMIN"})
+    @AuditLog(module = "系统管理", action = "DELETE", target = "用户")
     public R<Void> remove(@PathVariable Long[] userIds) {
         List<Long> ids = Arrays.asList(userIds);
         userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().in(SysUserRole::getUserId, ids));
@@ -116,12 +125,8 @@ public class SysUserController {
      * 获取用户已分配的角色ID列表
      */
     @GetMapping("/{userId}/roles")
+    @RequirePermission(roles = {"ADMIN"})
     public R<List<Long>> getUserRoles(@PathVariable Long userId) {
-        R<Void> authCheck = requireAdmin();
-        if (authCheck != null) {
-            return R.fail(authCheck.getCode(), authCheck.getMsg());
-        }
-
         List<Long> roleIds = userRoleMapper.selectList(
                 new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId)
         ).stream().map(SysUserRole::getRoleId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
@@ -133,12 +138,9 @@ public class SysUserController {
      */
     @PutMapping("/{userId}/roles")
     @Transactional
+    @RequirePermission(roles = {"ADMIN"})
+    @AuditLog(module = "系统管理", action = "ASSIGN", target = "用户角色")
     public R<Void> assignRoles(@PathVariable Long userId, @RequestBody List<Long> roleIds) {
-        R<Void> authCheck = requireAdmin();
-        if (authCheck != null) {
-            return authCheck;
-        }
-
         if (userService.getById(userId) == null) {
             return R.fail("用户不存在");
         }
@@ -281,14 +283,4 @@ public class SysUserController {
         return BCrypt.hashpw(password);
     }
 
-    private R<Void> requireAdmin() {
-        LoginUser loginUser = LoginUserContext.get();
-        if (loginUser == null) {
-            return R.fail(401, "请先登录");
-        }
-        if (!loginUser.hasRole("ADMIN")) {
-            return R.fail(403, "无权限操作");
-        }
-        return null;
-    }
 }

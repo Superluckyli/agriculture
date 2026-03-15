@@ -62,7 +62,7 @@ class AgriFarmlandControllerTest {
         mockMvc.perform(get("/crop/farmland/list"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.records").isArray());
+                .andExpect(jsonPath("$.data.items").isArray());
     }
 
     @Test

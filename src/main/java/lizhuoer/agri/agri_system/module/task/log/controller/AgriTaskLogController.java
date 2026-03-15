@@ -2,6 +2,7 @@ package lizhuoer.agri.agri_system.module.task.log.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
 import lizhuoer.agri.agri_system.module.task.log.domain.AgriTaskLog;
@@ -24,7 +25,7 @@ public class AgriTaskLogController {
     }
 
     @GetMapping("/list")
-    public R<Page<AgriTaskLog>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<AgriTaskLog>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             Long taskId, String action) {
         Page<AgriTaskLog> page = new Page<>(pageNum, pageSize);
@@ -32,7 +33,7 @@ public class AgriTaskLogController {
         wrapper.eq(taskId != null, AgriTaskLog::getTaskId, taskId)
                 .eq(action != null, AgriTaskLog::getAction, action)
                 .orderByDesc(AgriTaskLog::getCreatedAt);
-        return R.ok(taskLogService.page(page, wrapper));
+        return R.ok(PageResult.from(taskLogService.page(page, wrapper)));
     }
 
     @PostMapping

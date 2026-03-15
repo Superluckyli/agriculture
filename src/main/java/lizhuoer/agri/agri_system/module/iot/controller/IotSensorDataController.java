@@ -3,6 +3,7 @@ package lizhuoer.agri.agri_system.module.iot.controller;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.iot.domain.IotSensorData;
 import lizhuoer.agri.agri_system.module.iot.service.IIotSensorDataService;
@@ -17,7 +18,7 @@ public class IotSensorDataController {
     private IIotSensorDataService sensorDataService;
 
     @GetMapping("/list")
-    public R<Page<IotSensorData>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<IotSensorData>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String plotId,
             String sensorType) {
@@ -26,6 +27,6 @@ public class IotSensorDataController {
         wrapper.eq(StrUtil.isNotBlank(plotId), IotSensorData::getPlotId, plotId)
                 .eq(StrUtil.isNotBlank(sensorType), IotSensorData::getSensorType, sensorType)
                 .orderByDesc(IotSensorData::getCreateTime);
-        return R.ok(sensorDataService.page(page, wrapper));
+        return R.ok(PageResult.from(sensorDataService.page(page, wrapper)));
     }
 }

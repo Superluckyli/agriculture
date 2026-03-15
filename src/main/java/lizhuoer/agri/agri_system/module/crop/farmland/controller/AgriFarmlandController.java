@@ -2,6 +2,7 @@ package lizhuoer.agri.agri_system.module.crop.farmland.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.crop.farmland.domain.AgriFarmland;
 import lizhuoer.agri.agri_system.module.crop.farmland.service.IAgriFarmlandService;
@@ -19,11 +20,11 @@ public class AgriFarmlandController {
     private IAgriFarmlandService farmlandService;
 
     @GetMapping("/list")
-    public R<Page<AgriFarmland>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<AgriFarmland>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String name, Integer status) {
         Page<AgriFarmland> page = new Page<>(pageNum, pageSize);
-        return R.ok(farmlandService.listPage(page, name, status));
+        return R.ok(PageResult.from(farmlandService.listPage(page, name, status)));
     }
 
     @GetMapping("/all")

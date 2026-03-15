@@ -3,6 +3,7 @@ package lizhuoer.agri.agri_system.module.purchase.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
+import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
 import lizhuoer.agri.agri_system.module.purchase.domain.PaymentRecord;
@@ -11,6 +12,7 @@ import lizhuoer.agri.agri_system.module.purchase.domain.PurchaseOrderItem;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.PaymentCreateRequest;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderCreateRequest;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderItemCreateRequest;
+import lizhuoer.agri.agri_system.module.purchase.domain.dto.ReceiveItemRequest;
 import lizhuoer.agri.agri_system.module.purchase.service.IPaymentRecordService;
 import lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderItemService;
 import lizhuoer.agri.agri_system.module.purchase.service.IPurchaseOrderService;
@@ -35,11 +37,11 @@ public class PurchaseOrderController {
     private PurchaseReceiveService receiveService;
 
     @GetMapping("/list")
-    public R<Page<PurchaseOrder>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+    public R<PageResult<PurchaseOrder>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             String status, Long supplierId) {
         Page<PurchaseOrder> page = new Page<>(pageNum, pageSize);
-        return R.ok(orderService.listPage(page, supplierId, status));
+        return R.ok(PageResult.from(orderService.listPage(page, supplierId, status)));
     }
 
     @PostMapping
@@ -129,6 +131,17 @@ public class PurchaseOrderController {
     public R<Void> receive(@PathVariable Long orderId) {
         Long operatorId = LoginUserContext.requireUser().getUserId();
         receiveService.receiveOrder(orderId, operatorId);
+        return R.ok();
+    }
+
+    /**
+     * 单品分批收货 — 对指定明细行收入指定数量
+     */
+    @PostMapping("/{orderId}/receive-item")
+    public R<Void> receiveItem(@PathVariable Long orderId,
+                                @Valid @RequestBody ReceiveItemRequest req) {
+        Long operatorId = LoginUserContext.requireUser().getUserId();
+        receiveService.receiveItem(orderId, req, operatorId);
         return R.ok();
     }
 }
