@@ -83,9 +83,9 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
-        task.setStatusV2(task.getNeedReview() != null && task.getNeedReview() == 1
+        task.setStatusV2(task.getPriority() != null && task.getPriority() == 1
                 ? TaskStatusV2.PENDING_REVIEW
-                : TaskStatusV2.PENDING_ACCEPT);
+                : TaskStatusV2.CREATED);
         task.setUpdateTime(now);
         task.setVersion(0);
         this.save(task);
@@ -112,9 +112,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
-        String initStatus = task.getNeedReview() != null && task.getNeedReview() == 1
-                ? TaskStatusV2.PENDING_REVIEW
-                : TaskStatusV2.PENDING_ACCEPT;
+        String initStatus = TaskStatusV2.CREATED;
         task.setStatusV2(initStatus);
         task.setAssigneeId(null);
         task.setAssignTime(null);
@@ -154,21 +152,24 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (dto.getTaskId() <= 0 || dto.getAssigneeId() <= 0) {
             throw new IllegalArgumentException("taskId 和 assigneeId 必须大于 0");
         }
-        if (operator == null || !operator.hasAnyRole("ADMIN", "FARM_OWNER")) {
-            throw new RuntimeException("仅管理员可派单");
+        if (operator == null || !operator.hasAnyRole("ADMIN", "FARM_OWNER", "TECHNICIAN")) {
+            throw new RuntimeException("仅管理员或技术人员可派单");
         }
 
         AgriTask task = mustGetTask(dto.getTaskId());
         ensureAssigneeValid(dto.getAssigneeId());
 
-        // V1: 所有派单统一进入 pending_accept，工人需要接单确认
+        // 允许从 created / rejected_reassign 派单，统一进入 pending_accept
         boolean idempotent = TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())
                 && Objects.equals(task.getAssigneeId(), dto.getAssigneeId());
         if (idempotent) {
             return;
         }
-        if (!TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())) {
-            throw new RuntimeException("仅待接单任务可派单");
+        String currentStatus = task.getStatusV2();
+        if (!TaskStatusV2.CREATED.equals(currentStatus)
+                && !TaskStatusV2.REJECTED_REASSIGN.equals(currentStatus)
+                && !TaskStatusV2.PENDING_ACCEPT.equals(currentStatus)) {
+            throw new RuntimeException("仅已创建或已拒单(重派)的任务可派单");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -179,7 +180,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                 dto.getRemark(),
                 now,
                 now,
-                TaskStatusV2.PENDING_ACCEPT,
+                currentStatus,
                 TaskStatusV2.PENDING_ACCEPT,
                 safeVersion(task));
 
@@ -198,7 +199,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         log.setTaskId(dto.getTaskId());
         log.setBatchId(task.getBatchId());
         log.setAction("assign");
-        log.setFromStatus(TaskStatusV2.PENDING_ACCEPT);
+        log.setFromStatus(currentStatus);
         log.setToStatus(TaskStatusV2.PENDING_ACCEPT);
         log.setOperatorId(operator.getUserId());
         log.setTargetUserId(dto.getAssigneeId());
@@ -508,22 +509,22 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
     @Transactional(rollbackFor = Exception.class)
     public R<AgriTask> reviewTask(Long taskId, boolean approved, String comment) {
         if (taskId == null) {
-            throw new RuntimeException("taskId 不能为空");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "taskId 不能为空");
         }
         LoginUser operator = LoginUserContext.requireUser();
-        if (!operator.hasAnyRole("ADMIN", "FARM_OWNER", "MANAGER")) {
-            throw new RuntimeException("仅管理角色可复核任务");
+        if (!operator.hasAnyRole("ADMIN", "FARM_OWNER", "MANAGER", "TECHNICIAN")) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "仅管理角色或技术人员可复核任务");
         }
 
         AgriTask task = mustGetTask(taskId);
-        String toStatus = approved ? TaskStatusV2.PENDING_ACCEPT : TaskStatusV2.REJECTED_REVIEW;
+        String toStatus = approved ? TaskStatusV2.CREATED : TaskStatusV2.REJECTED_REVIEW;
         TaskStatusV2.assertTransition(task.getStatusV2(), toStatus);
 
         LocalDateTime now = LocalDateTime.now();
         int updated = baseMapper.reviewTask(taskId, operator.getUserId(), now,
                 task.getStatusV2(), toStatus, safeVersion(task));
         if (updated == 0) {
-            throw new RuntimeException("任务状态已变化，复核失败");
+            throw new BusinessException(ErrorCode.OPTIMISTIC_LOCK_FAIL, "任务状态已变化，复核失败，请刷新后重试");
         }
 
         AgriTaskLog log = new AgriTaskLog();
@@ -533,98 +534,6 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         log.setToStatus(toStatus);
         log.setOperatorId(operator.getUserId());
         log.setRemark(comment);
-        log.setCreatedAt(now);
-        taskLogService.save(log);
-
-        return R.ok(this.getById(taskId));
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public R<AgriTask> suspendTask(Long taskId, String reason) {
-        if (taskId == null) {
-            throw new RuntimeException("taskId 不能为空");
-        }
-        LoginUser operator = LoginUserContext.requireUser();
-
-        AgriTask task = mustGetTask(taskId);
-        TaskStatusV2.assertTransition(task.getStatusV2(), TaskStatusV2.SUSPENDED);
-
-        LocalDateTime now = LocalDateTime.now();
-        int updated = baseMapper.suspendTask(taskId, operator.getUserId(), reason, now,
-                task.getStatusV2(), TaskStatusV2.SUSPENDED, safeVersion(task));
-        if (updated == 0) {
-            throw new RuntimeException("任务状态已变化，暂停失败");
-        }
-
-        AgriTaskLog log = new AgriTaskLog();
-        log.setTaskId(taskId);
-        log.setAction("suspend");
-        log.setFromStatus(task.getStatusV2());
-        log.setToStatus(TaskStatusV2.SUSPENDED);
-        log.setOperatorId(operator.getUserId());
-        log.setRemark(reason);
-        log.setCreatedAt(now);
-        taskLogService.save(log);
-
-        return R.ok(this.getById(taskId));
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public R<AgriTask> resumeTask(Long taskId) {
-        if (taskId == null) {
-            throw new RuntimeException("taskId 不能为空");
-        }
-        LoginUser operator = LoginUserContext.requireUser();
-
-        AgriTask task = mustGetTask(taskId);
-        TaskStatusV2.assertTransition(task.getStatusV2(), TaskStatusV2.IN_PROGRESS);
-
-        LocalDateTime now = LocalDateTime.now();
-        int updated = baseMapper.resumeTask(taskId, operator.getUserId(), now,
-                task.getStatusV2(), TaskStatusV2.IN_PROGRESS, safeVersion(task));
-        if (updated == 0) {
-            throw new RuntimeException("任务状态已变化，恢复失败");
-        }
-
-        AgriTaskLog log = new AgriTaskLog();
-        log.setTaskId(taskId);
-        log.setAction("resume");
-        log.setFromStatus(task.getStatusV2());
-        log.setToStatus(TaskStatusV2.IN_PROGRESS);
-        log.setOperatorId(operator.getUserId());
-        log.setCreatedAt(now);
-        taskLogService.save(log);
-
-        return R.ok(this.getById(taskId));
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public R<AgriTask> cancelTask(Long taskId, String reason) {
-        if (taskId == null) {
-            throw new RuntimeException("taskId 不能为空");
-        }
-        LoginUser operator = LoginUserContext.requireUser();
-
-        AgriTask task = mustGetTask(taskId);
-        TaskStatusV2.assertTransition(task.getStatusV2(), TaskStatusV2.CANCELLED);
-
-        LocalDateTime now = LocalDateTime.now();
-        int updated = baseMapper.cancelTask(taskId, operator.getUserId(), reason, now,
-                task.getStatusV2(), TaskStatusV2.CANCELLED, safeVersion(task));
-        if (updated == 0) {
-            throw new RuntimeException("任务状态已变化，取消失败");
-        }
-
-        AgriTaskLog log = new AgriTaskLog();
-        log.setTaskId(taskId);
-        log.setAction("cancel");
-        log.setFromStatus(task.getStatusV2());
-        log.setToStatus(TaskStatusV2.CANCELLED);
-        log.setOperatorId(operator.getUserId());
-        log.setRemark(reason);
         log.setCreatedAt(now);
         taskLogService.save(log);
 
@@ -755,9 +664,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                 .isNotNull(AgriTask::getDeadlineAt)
                 .lt(AgriTask::getDeadlineAt, now)
                 .in(AgriTask::getStatusV2,
+                        TaskStatusV2.CREATED,
                         TaskStatusV2.PENDING_REVIEW,
                         TaskStatusV2.PENDING_ACCEPT,
-                        TaskStatusV2.IN_PROGRESS));
+                        TaskStatusV2.IN_PROGRESS,
+                        TaskStatusV2.REJECTED_REASSIGN));
 
         if (overdueTasks.isEmpty()) {
             return 0;

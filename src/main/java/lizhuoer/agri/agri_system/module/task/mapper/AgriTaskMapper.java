@@ -192,6 +192,7 @@ public interface AgriTaskMapper extends BaseMapper<AgriTask> {
     @Update("""
             UPDATE agri_task
             SET status_v2 = #{toStatus},
+                reviewer_user_id = #{operatorId},
                 update_time = #{updateTime},
                 update_by = #{operatorId},
                 version = version + 1

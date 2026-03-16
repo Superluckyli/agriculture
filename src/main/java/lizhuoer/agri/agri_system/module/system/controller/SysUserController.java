@@ -45,7 +45,7 @@ public class SysUserController {
      * 分页查询用户（附带角色信息）
      */
     @GetMapping("/list")
-    @RequirePermission(roles = {"ADMIN", "FARM_OWNER"})
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER", "TECHNICIAN"})
     public R<PageResult<SysUser>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             SysUser user) {

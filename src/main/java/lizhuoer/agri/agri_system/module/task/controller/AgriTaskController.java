@@ -72,7 +72,7 @@ public class AgriTaskController {
     }
 
     @PutMapping("/assign")
-    @RequirePermission(roles = {"ADMIN", "FARM_OWNER"})
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER", "TECHNICIAN"})
     @AuditLog(module = "任务管理", action = "ASSIGN", target = "任务")
     public R<Void> assign(@Valid @RequestBody TaskAssignDTO dto, HttpServletRequest request) {
         LoginUser loginUser = LoginUserContext.requireUser();
@@ -105,6 +105,8 @@ public class AgriTaskController {
     }
 
     @PutMapping("/{id}/review")
+    @RequirePermission(roles = {"ADMIN", "FARM_OWNER", "MANAGER", "TECHNICIAN"})
+    @AuditLog(module = "任务管理", action = "REVIEW", target = "任务")
     public R<AgriTask> review(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Boolean approved = (Boolean) body.get("approved");
         String comment = (String) body.get("comment");
@@ -112,21 +114,6 @@ public class AgriTaskController {
             throw new IllegalArgumentException("approved 不能为空");
         }
         return taskService.reviewTask(id, approved, comment);
-    }
-
-    @PutMapping("/{id}/suspend")
-    public R<AgriTask> suspend(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return taskService.suspendTask(id, body.get("reason"));
-    }
-
-    @PutMapping("/{id}/resume")
-    public R<AgriTask> resume(@PathVariable Long id) {
-        return taskService.resumeTask(id);
-    }
-
-    @PutMapping("/{id}/cancel")
-    public R<AgriTask> cancel(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return taskService.cancelTask(id, body.get("reason"));
     }
 
     @PutMapping("/{id}/reassign")

@@ -45,12 +45,6 @@ public interface IAgriTaskService extends IService<AgriTask> {
 
     R<AgriTask> reviewTask(Long taskId, boolean approved, String comment);
 
-    R<AgriTask> suspendTask(Long taskId, String reason);
-
-    R<AgriTask> resumeTask(Long taskId);
-
-    R<AgriTask> cancelTask(Long taskId, String reason);
-
     R<AgriTask> reassignTask(Long taskId, Long newAssigneeId);
 
     void deleteTasks(List<Long> ids);

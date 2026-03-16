@@ -38,6 +38,9 @@ public class AgriTaskLogController {
 
     @PostMapping
     public R<Void> add(@RequestBody AgriTaskLog log) {
+        if (log.getOperatorId() == null) {
+            log.setOperatorId(LoginUserContext.requireUser().getUserId());
+        }
         taskLogService.save(log);
         return R.ok();
     }
