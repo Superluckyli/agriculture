@@ -1,14 +1,6 @@
 -- =============================================================
--- data.sql · V1 种子数据（与 schema.sql 严格对应）
--- 插入顺序按外键依赖：
---   sys_role → sys_user → sys_user_role → sys_menu → sys_role_menu
---   → base_crop_variety → agri_farmland → supplier_info
---   → agri_crop_batch → material_info
---   → agri_task → agri_task_material → agri_task_log
---   → material_stock_log → purchase_order → purchase_order_item
---   → agri_task_rule → iot_sensor_data
--- 密码统一为 123456 的 BCrypt 散列
--- 角色模型: ADMIN / FARM_OWNER / TECHNICIAN / WORKER (共 4 个)
+-- [DEPRECATED] 已迁移到 Flyway: db/migration/V1.1__seed_data.sql
+-- 此文件保留仅供参考，不再由 Spring SQL Init 执行
 -- =============================================================
 
 -- ----------------------------------------------------------

@@ -1,1 +1,8 @@
 .ace-tool/
+target/
+.m2/
+.m2repo/
+.vscode/
+*.class
+*.jar
+*.log

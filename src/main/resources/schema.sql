@@ -1,7 +1,6 @@
 -- ==========================================
--- 智慧农业管理系统 V1 — 数据库 Schema
--- 生成时间: 2026-03-12
--- 策略: DROP + CREATE 确保结构一致
+-- [DEPRECATED] 已迁移到 Flyway: db/migration/V1__baseline.sql
+-- 此文件保留仅供参考，不再由 Spring SQL Init 执行
 -- ==========================================
 
 -- ------------------------------------------
@@ -25,6 +24,8 @@ DROP TABLE IF EXISTS agri_crop_batch;
 DROP TABLE IF EXISTS material_info;
 DROP TABLE IF EXISTS supplier_info;
 DROP TABLE IF EXISTS agri_farmland;
+DROP TABLE IF EXISTS iot_sensor_data;
+DROP TABLE IF EXISTS agri_task_rule;
 
 -- ==========================================
 -- 1. System Module (保留不变)
@@ -366,7 +367,7 @@ CREATE TABLE payment_record (
 -- 14. IoT Module (保留不变，V1.5 使用)
 -- ==========================================
 
-CREATE TABLE IF NOT EXISTS iot_sensor_data (
+CREATE TABLE iot_sensor_data (
     data_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     plot_id VARCHAR(50),
     sensor_type VARCHAR(20),
@@ -376,7 +377,7 @@ CREATE TABLE IF NOT EXISTS iot_sensor_data (
     INDEX idx_plot_time (plot_id, create_time)
 );
 
-CREATE TABLE IF NOT EXISTS agri_task_rule (
+CREATE TABLE agri_task_rule (
     rule_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     rule_name VARCHAR(50),
     sensor_type VARCHAR(20),
