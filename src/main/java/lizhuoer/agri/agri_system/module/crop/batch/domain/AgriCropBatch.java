@@ -19,7 +19,6 @@ public class AgriCropBatch {
     private Long id;
     private Long tenantId;
     private Long orgId;
-    @NotBlank(message = "批次号不能为空")
     private String batchNo;
     @NotNull(message = "农田ID不能为空")
     private Long farmlandId;

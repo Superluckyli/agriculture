@@ -1,15 +1,18 @@
 package lizhuoer.agri.agri_system.module.iot.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lizhuoer.agri.agri_system.module.crop.farmland.domain.AgriFarmland;
+import lizhuoer.agri.agri_system.module.crop.farmland.mapper.AgriFarmlandMapper;
 import lizhuoer.agri.agri_system.module.iot.domain.IotSensorData;
 import lizhuoer.agri.agri_system.module.iot.mapper.IotSensorDataMapper;
 import lizhuoer.agri.agri_system.module.iot.service.IAgriTaskRuleService;
 import lizhuoer.agri.agri_system.module.iot.service.IIotSensorDataService;
 import lizhuoer.agri.agri_system.module.iot.sse.SseEmitterManager;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,29 +20,67 @@ import java.util.Map;
 public class IotSensorDataServiceImpl extends ServiceImpl<IotSensorDataMapper, IotSensorData>
         implements IIotSensorDataService {
 
-    @Autowired
-    private IAgriTaskRuleService ruleService;
+    private final IAgriTaskRuleService ruleService;
+    private final SseEmitterManager sseManager;
+    private final AgriFarmlandMapper farmlandMapper;
 
-    @Autowired
-    private SseEmitterManager sseManager;
+    public IotSensorDataServiceImpl(IAgriTaskRuleService ruleService,
+            SseEmitterManager sseManager,
+            AgriFarmlandMapper farmlandMapper) {
+        this.ruleService = ruleService;
+        this.sseManager = sseManager;
+        this.farmlandMapper = farmlandMapper;
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveDataAndCheckAlert(IotSensorData data) {
-        // 1. 入库
-        this.save(data);
+        LocalDateTime now = LocalDateTime.now();
+        if (data.getCreateTime() == null) {
+            data.setCreateTime(now);
+        }
+        if (data.getCreatedAt() == null) {
+            data.setCreatedAt(now);
+        }
+        if (StrUtil.isBlank(data.getSourceType())) {
+            data.setSourceType("SIMULATED");
+        }
+        if (StrUtil.isBlank(data.getQualityStatus())) {
+            data.setQualityStatus("VALID");
+        }
+        if (StrUtil.isBlank(data.getPlotId()) && data.getFarmlandId() != null) {
+            data.setPlotId(resolvePlotId(data.getFarmlandId()));
+        }
 
-        // 2. SSE 广播给前端订阅者
+        this.save(data);
+        sseManager.broadcast("iot-data", buildPayload(data));
+        ruleService.checkAndTriggerTask(data);
+    }
+
+    private Map<String, Object> buildPayload(IotSensorData data) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("dataId", data.getDataId());
+        payload.put("deviceId", data.getDeviceId());
+        payload.put("farmlandId", data.getFarmlandId());
         payload.put("plotId", data.getPlotId());
         payload.put("sensorType", data.getSensorType());
-        payload.put("value", data.getValue());
+        payload.put("value", data.getSensorValue());
         payload.put("unit", data.getUnit());
+        payload.put("sourceType", data.getSourceType());
+        payload.put("qualityStatus", data.getQualityStatus());
         payload.put("createTime", data.getCreateTime());
-        sseManager.broadcast("iot-data", payload);
+        payload.put("createdAt", data.getCreatedAt());
+        return payload;
+    }
 
-        // 3. 检查警报
-        ruleService.checkAndTriggerTask(data);
+    private String resolvePlotId(Long farmlandId) {
+        AgriFarmland farmland = farmlandMapper.selectById(farmlandId);
+        if (farmland == null) {
+            return String.valueOf(farmlandId);
+        }
+        if (StrUtil.isNotBlank(farmland.getCode())) {
+            return farmland.getCode();
+        }
+        return String.valueOf(farmlandId);
     }
 }

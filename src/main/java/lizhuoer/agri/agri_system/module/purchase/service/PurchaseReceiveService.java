@@ -24,7 +24,7 @@ import java.util.Set;
 @Service
 public class PurchaseReceiveService {
     private static final int MAX_RETRY = 3;
-    private static final Set<String> RECEIVABLE = Set.of("confirmed", "partial_received");
+    private static final Set<String> RECEIVABLE = Set.of("paid", "partial_received", "receiving");
 
     private final IPurchaseOrderService orderService;
     private final IPurchaseOrderItemService itemService;

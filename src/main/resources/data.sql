@@ -9,6 +9,11 @@
 DELETE FROM payment_record;
 DELETE FROM purchase_order_item;
 DELETE FROM purchase_order;
+DELETE FROM iot_task_dispatch_record;
+DELETE FROM iot_warning_event;
+DELETE FROM iot_simulation_profile;
+DELETE FROM iot_device_binding;
+DELETE FROM iot_device;
 DELETE FROM material_stock_log;
 DELETE FROM agri_task_log;
 DELETE FROM agri_task_material;

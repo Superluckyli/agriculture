@@ -19,7 +19,7 @@ import java.util.Set;
 @Service
 public class PaymentRecordServiceImpl extends ServiceImpl<PaymentRecordMapper, PaymentRecord> implements IPaymentRecordService {
 
-    private static final Set<String> PAYABLE_STATUSES = Set.of("confirmed", "receiving", "partial_received");
+    private static final Set<String> PAYABLE_STATUSES = Set.of("confirmed");
 
     @Autowired
     private IPurchaseOrderService purchaseOrderService;

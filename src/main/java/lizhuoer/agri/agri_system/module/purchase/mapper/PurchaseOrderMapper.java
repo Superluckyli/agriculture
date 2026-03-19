@@ -17,4 +17,12 @@ public interface PurchaseOrderMapper extends BaseMapper<PurchaseOrder> {
                         @Param("toStatus") String toStatus,
                         @Param("confirmedBy") Long confirmedBy,
                         @Param("version") Integer version);
+
+    @Update("UPDATE purchase_order SET status = 'paid', pay_method = #{payMethod}, " +
+            "confirmed_by = #{operatorId}, updated_at = NOW(), version = version + 1 " +
+            "WHERE id = #{id} AND status = 'confirmed' AND version = #{version}")
+    int casPayOrder(@Param("id") Long id,
+                    @Param("payMethod") String payMethod,
+                    @Param("operatorId") Long operatorId,
+                    @Param("version") Integer version);
 }

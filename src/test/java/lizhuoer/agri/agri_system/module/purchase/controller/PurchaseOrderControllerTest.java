@@ -86,11 +86,21 @@ class PurchaseOrderControllerTest {
 
     @Test
     void addShouldSetStatusToDraft() throws Exception {
+        PurchaseOrder created = sampleOrder(1L, "draft");
+        when(orderService.createOrder(any())).thenReturn(created);
+
         String body = """
                 {
                   "supplierId": 1,
                   "payMethod": "bank_transfer",
-                  "remark": "First order"
+                  "remark": "First order",
+                  "items": [
+                    {
+                      "materialId": 5,
+                      "purchaseQty": 100,
+                      "unitPrice": 12.50
+                    }
+                  ]
                 }
                 """;
 
@@ -100,7 +110,7 @@ class PurchaseOrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(orderService).save(any(PurchaseOrder.class));
+        verify(orderService).createOrder(any());
     }
 
     @Test
@@ -243,6 +253,30 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
 
         verify(itemService).save(any(PurchaseOrderItem.class));
+        verify(orderService).recalcTotalAmount(10L);
+    }
+
+    @Test
+    void replaceItemsShouldDelegateToServiceForDraftOrder() throws Exception {
+        when(orderService.getById(10L)).thenReturn(sampleOrder(10L, "draft"));
+
+        String body = """
+                [
+                  {
+                    "materialId": 5,
+                    "purchaseQty": 100,
+                    "unitPrice": 12.50
+                  }
+                ]
+                """;
+
+        mockMvc.perform(put("/purchase/10/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(orderService).replaceItems(eq(10L), any());
     }
 
     // --- 付款记录 ---

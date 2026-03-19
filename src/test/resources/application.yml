@@ -9,7 +9,9 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema.sql
-      data-locations: classpath:data.sql
+      data-locations:
+        - classpath:data.sql
+        - classpath:data-iot-v2.sql
       encoding: UTF-8
       continue-on-error: true
   flyway:

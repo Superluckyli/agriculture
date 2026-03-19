@@ -27,10 +27,11 @@ public class AgriTaskLogController {
     @GetMapping("/list")
     public R<PageResult<AgriTaskLog>> list(@RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
-            Long taskId, String action) {
+            Long taskId, Long batchId, String action) {
         Page<AgriTaskLog> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<AgriTaskLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(taskId != null, AgriTaskLog::getTaskId, taskId)
+                .eq(batchId != null, AgriTaskLog::getBatchId, batchId)
                 .eq(action != null, AgriTaskLog::getAction, action)
                 .orderByDesc(AgriTaskLog::getCreatedAt);
         return R.ok(PageResult.from(taskLogService.page(page, wrapper)));

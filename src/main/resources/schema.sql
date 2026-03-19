@@ -24,6 +24,11 @@ DROP TABLE IF EXISTS agri_crop_batch;
 DROP TABLE IF EXISTS material_info;
 DROP TABLE IF EXISTS supplier_info;
 DROP TABLE IF EXISTS agri_farmland;
+DROP TABLE IF EXISTS iot_task_dispatch_record;
+DROP TABLE IF EXISTS iot_warning_event;
+DROP TABLE IF EXISTS iot_simulation_profile;
+DROP TABLE IF EXISTS iot_device_binding;
+DROP TABLE IF EXISTS iot_device;
 DROP TABLE IF EXISTS iot_sensor_data;
 DROP TABLE IF EXISTS agri_task_rule;
 
@@ -71,6 +76,39 @@ CREATE TABLE IF NOT EXISTS sys_role_menu (
     role_id BIGINT NOT NULL,
     menu_id BIGINT NOT NULL,
     PRIMARY KEY (role_id, menu_id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_conversation (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_a_id BIGINT NOT NULL,
+    user_b_id BIGINT NOT NULL,
+    last_message_id BIGINT,
+    last_message_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_chat_conversation_pair UNIQUE (user_a_id, user_b_id),
+    INDEX idx_chat_conversation_user_a (user_a_id, last_message_at),
+    INDEX idx_chat_conversation_user_b (user_b_id, last_message_at)
+);
+
+CREATE TABLE IF NOT EXISTS chat_message (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    conversation_id BIGINT NOT NULL,
+    sender_id BIGINT NOT NULL,
+    receiver_id BIGINT NOT NULL,
+    content VARCHAR(1000) NOT NULL,
+    message_type VARCHAR(16) NOT NULL DEFAULT 'text',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_chat_message_conversation (conversation_id, id),
+    INDEX idx_chat_message_receiver (receiver_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_read_state (
+    conversation_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    last_read_message_id BIGINT,
+    last_read_at DATETIME,
+    PRIMARY KEY (conversation_id, user_id),
+    INDEX idx_chat_read_state_user (user_id, last_read_at)
 );
 
 -- ==========================================
@@ -316,7 +354,7 @@ CREATE TABLE purchase_order (
     tenant_id BIGINT NOT NULL DEFAULT 1,
     org_id BIGINT NOT NULL DEFAULT 1,
     order_no VARCHAR(64) NOT NULL UNIQUE,
-    status VARCHAR(32) NOT NULL DEFAULT 'draft' COMMENT 'draft/confirmed/receiving/partial_received/completed/cancelled',
+    status VARCHAR(32) NOT NULL DEFAULT 'draft' COMMENT 'draft/confirmed/paid/receiving/partial_received/completed/cancelled',
     supplier_id BIGINT,
     total_amount DECIMAL(14, 2),
     pay_method VARCHAR(32),
@@ -367,24 +405,117 @@ CREATE TABLE payment_record (
 -- 14. IoT Module (保留不变，V1.5 使用)
 -- ==========================================
 
+CREATE TABLE iot_device (
+    device_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    device_code VARCHAR(64) NOT NULL UNIQUE,
+    device_name VARCHAR(100) NOT NULL,
+    source_type VARCHAR(20) NOT NULL COMMENT 'PHYSICAL/SIMULATED',
+    device_status VARCHAR(20) NOT NULL DEFAULT 'OFFLINE' COMMENT 'ONLINE/OFFLINE/DISABLED',
+    last_reported_at DATETIME,
+    remark VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_iot_device_source_status (source_type, device_status)
+);
+
+CREATE TABLE iot_device_binding (
+    binding_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    device_id BIGINT NOT NULL,
+    farmland_id BIGINT NOT NULL,
+    is_active TINYINT NOT NULL DEFAULT 1,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_iot_binding_device (device_id, is_active),
+    INDEX idx_iot_binding_farmland (farmland_id, is_active)
+);
+
+CREATE TABLE iot_simulation_profile (
+    profile_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    device_id BIGINT NOT NULL,
+    sensor_type VARCHAR(30) NOT NULL,
+    base_value DECIMAL(10, 2) NOT NULL,
+    fluctuation_range DECIMAL(10, 2) NOT NULL,
+    warning_value DECIMAL(10, 2) NOT NULL,
+    warning_probability DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
+    interval_seconds INT NOT NULL DEFAULT 600,
+    is_enabled TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_iot_sim_profile_device_sensor (device_id, sensor_type),
+    INDEX idx_iot_sim_profile_enabled (is_enabled)
+);
+
 CREATE TABLE iot_sensor_data (
     data_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    plot_id VARCHAR(50),
-    sensor_type VARCHAR(20),
-    value DECIMAL(10, 2),
-    unit VARCHAR(10),
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_plot_time (plot_id, create_time)
+    device_id BIGINT NOT NULL,
+    farmland_id BIGINT NOT NULL,
+    plot_id VARCHAR(50) COMMENT '地块编码快照/兼容展示字段',
+    sensor_type VARCHAR(30) NOT NULL,
+    sensor_value DECIMAL(10, 2) NOT NULL,
+    unit VARCHAR(20),
+    source_type VARCHAR(20) NOT NULL COMMENT 'PHYSICAL/SIMULATED',
+    quality_status VARCHAR(20) NOT NULL DEFAULT 'VALID' COMMENT 'VALID/INVALID',
+    reported_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_iot_sensor_plot_time (plot_id, reported_at),
+    INDEX idx_iot_sensor_farmland_type_time (farmland_id, sensor_type, reported_at),
+    INDEX idx_iot_sensor_device_time (device_id, reported_at),
+    INDEX idx_iot_sensor_source (source_type, quality_status)
 );
 
 CREATE TABLE agri_task_rule (
     rule_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    rule_name VARCHAR(50),
-    sensor_type VARCHAR(20),
-    min_val DECIMAL(10, 2),
-    max_val DECIMAL(10, 2),
-    auto_task_type VARCHAR(50),
-    priority INT DEFAULT 1,
-    is_enable INT DEFAULT 1,
-    cooldown_minutes INT DEFAULT 60
+    rule_name VARCHAR(100) NOT NULL,
+    sensor_type VARCHAR(30) NOT NULL,
+    trigger_condition VARCHAR(20) NOT NULL DEFAULT 'OUTSIDE_RANGE' COMMENT 'LT/GT/OUTSIDE_RANGE',
+    min_value DECIMAL(10, 2),
+    max_value DECIMAL(10, 2),
+    create_mode VARCHAR(20) NOT NULL DEFAULT 'AUTO' COMMENT 'MANUAL/AUTO/AUTO_AI',
+    task_type VARCHAR(50),
+    task_priority INT DEFAULT 2,
+    dispatch_cooldown_minutes INT NOT NULL DEFAULT 60,
+    is_enabled TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_iot_rule_sensor_enabled (sensor_type, is_enabled)
+);
+
+CREATE TABLE iot_warning_event (
+    event_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    rule_id BIGINT NOT NULL,
+    sensor_data_id BIGINT NOT NULL,
+    device_id BIGINT NOT NULL,
+    farmland_id BIGINT NOT NULL,
+    batch_id BIGINT,
+    sensor_type VARCHAR(30) NOT NULL,
+    trigger_value DECIMAL(10, 2) NOT NULL,
+    triggered_at DATETIME NOT NULL,
+    handle_status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/TASK_CREATED/TASK_LINKED/FAILED',
+    dispatch_mode VARCHAR(20) COMMENT 'MANUAL/AUTO/AUTO_AI',
+    task_id BIGINT,
+    failure_reason VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_iot_warning_rule_time (rule_id, triggered_at),
+    INDEX idx_iot_warning_farmland_time (farmland_id, triggered_at),
+    INDEX idx_iot_warning_handle_status (handle_status, triggered_at),
+    INDEX idx_iot_warning_batch (batch_id)
+);
+
+CREATE TABLE iot_task_dispatch_record (
+    dispatch_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_id BIGINT NOT NULL,
+    rule_id BIGINT NOT NULL,
+    task_id BIGINT,
+    dispatch_mode VARCHAR(20) NOT NULL COMMENT 'MANUAL/AUTO/AUTO_AI',
+    dispatch_status VARCHAR(20) NOT NULL COMMENT 'SUCCESS/FAILED/LINKED_EXISTING',
+    operator_id BIGINT,
+    ai_summary TEXT,
+    error_message VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_iot_dispatch_event (event_id),
+    INDEX idx_iot_dispatch_rule (rule_id, created_at),
+    INDEX idx_iot_dispatch_task (task_id)
 );

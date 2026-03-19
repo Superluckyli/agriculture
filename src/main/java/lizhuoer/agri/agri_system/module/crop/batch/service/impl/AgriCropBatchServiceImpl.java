@@ -55,6 +55,10 @@ public class AgriCropBatchServiceImpl extends ServiceImpl<AgriCropBatchMapper, A
             }
             batch.setCropVariety(variety.getCropName());
         }
+        // 生成批次号：BATCH-yyyyMMdd-随机4位
+        String datePart = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String randomPart = String.format("%04d", new java.util.Random().nextInt(10000));
+        batch.setBatchNo("BATCH-" + datePart + "-" + randomPart);
         batch.setStatus("not_started");
         save(batch);
     }

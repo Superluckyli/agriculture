@@ -1,64 +1,135 @@
 package lizhuoer.agri.agri_system.module.iot.job;
 
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lizhuoer.agri.agri_system.module.crop.farmland.domain.AgriFarmland;
+import lizhuoer.agri.agri_system.module.crop.farmland.mapper.AgriFarmlandMapper;
+import lizhuoer.agri.agri_system.module.iot.domain.IotDevice;
+import lizhuoer.agri.agri_system.module.iot.domain.IotDeviceBinding;
 import lizhuoer.agri.agri_system.module.iot.domain.IotSensorData;
+import lizhuoer.agri.agri_system.module.iot.domain.IotSimulationProfile;
+import lizhuoer.agri.agri_system.module.iot.mapper.IotDeviceBindingMapper;
+import lizhuoer.agri.agri_system.module.iot.mapper.IotDeviceMapper;
+import lizhuoer.agri.agri_system.module.iot.mapper.IotSensorDataMapper;
+import lizhuoer.agri.agri_system.module.iot.mapper.IotSimulationProfileMapper;
 import lizhuoer.agri.agri_system.module.iot.service.IIotSensorDataService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lizhuoer.agri.agri_system.module.iot.support.IotSensorCatalog;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 
-/**
- * 模拟传感器定时上报数据
- */
 @Component
 @EnableScheduling
 public class SensorDataSimulator {
 
-    @Autowired
-    private IIotSensorDataService sensorDataService;
+    private final IIotSensorDataService sensorDataService;
+    private final IotDeviceMapper deviceMapper;
+    private final IotDeviceBindingMapper bindingMapper;
+    private final IotSensorDataMapper sensorDataMapper;
+    private final IotSimulationProfileMapper profileMapper;
+    private final AgriFarmlandMapper farmlandMapper;
 
-    // 模拟的地块列表
-    private static final List<String> MOCK_PLOTS = Arrays.asList("Plot_A", "Plot_B", "Greenhouse_1");
+    public SensorDataSimulator(IIotSensorDataService sensorDataService,
+            IotDeviceMapper deviceMapper,
+            IotDeviceBindingMapper bindingMapper,
+            IotSensorDataMapper sensorDataMapper,
+            IotSimulationProfileMapper profileMapper,
+            AgriFarmlandMapper farmlandMapper) {
+        this.sensorDataService = sensorDataService;
+        this.deviceMapper = deviceMapper;
+        this.bindingMapper = bindingMapper;
+        this.sensorDataMapper = sensorDataMapper;
+        this.profileMapper = profileMapper;
+        this.farmlandMapper = farmlandMapper;
+    }
 
-    /**
-     * 每 30 秒执行一次模拟 (演示频率快一些)
-     */
-    @Scheduled(fixedRate = 600000)
+    @Scheduled(fixedRate = 60000)
     public void generateMockData() {
-        System.out.println(">>> [Simulator] 开始生成模拟传感器数据...");
+        LocalDateTime now = LocalDateTime.now();
+        List<IotDevice> devices = deviceMapper.selectList(new LambdaQueryWrapper<IotDevice>()
+                .eq(IotDevice::getSourceType, "SIMULATED")
+                .ne(IotDevice::getDeviceStatus, "DISABLED"));
+        if (devices.isEmpty()) {
+            return;
+        }
 
-        for (String plotId : MOCK_PLOTS) {
-            // 1. 生成温度 (15~35度)
-            double tempVal = RandomUtil.randomDouble(15.0, 35.0);
-            createAndSave(plotId, "TEMP", tempVal, "℃");
-
-            // 2. 生成湿度 (20%~90%)
-            // 偶尔生成极低湿度以触发报警 (假设 20% 概率生成 < 30% 的干旱数据)
-            double humVal;
-            if (RandomUtil.randomInt(100) < 20) {
-                humVal = RandomUtil.randomDouble(10.0, 29.0); // 触发报警
-                System.out.println("    !!! 模拟生成 [异常] 湿度数据: " + humVal);
-            } else {
-                humVal = RandomUtil.randomDouble(30.0, 90.0); // 正常
+        for (IotDevice device : devices) {
+            IotDeviceBinding binding = bindingMapper.selectOne(new LambdaQueryWrapper<IotDeviceBinding>()
+                    .eq(IotDeviceBinding::getDeviceId, device.getDeviceId())
+                    .eq(IotDeviceBinding::getIsActive, 1)
+                    .last("LIMIT 1"));
+            if (binding == null) {
+                continue;
             }
-            createAndSave(plotId, "HUMIDITY", humVal, "%");
+
+            AgriFarmland farmland = farmlandMapper.selectById(binding.getFarmlandId());
+            String plotId = farmland != null && StrUtil.isNotBlank(farmland.getCode())
+                    ? farmland.getCode()
+                    : String.valueOf(binding.getFarmlandId());
+
+            List<IotSimulationProfile> profiles = profileMapper.selectList(new LambdaQueryWrapper<IotSimulationProfile>()
+                    .eq(IotSimulationProfile::getDeviceId, device.getDeviceId())
+                    .eq(IotSimulationProfile::getIsEnabled, 1));
+            for (IotSimulationProfile profile : profiles) {
+                if (!IotSensorCatalog.isSupported(profile.getSensorType())) {
+                    continue;
+                }
+                if (!shouldGenerate(profile, now)) {
+                    continue;
+                }
+
+                IotSensorData data = new IotSensorData();
+                data.setDeviceId(device.getDeviceId());
+                data.setFarmlandId(binding.getFarmlandId());
+                data.setPlotId(plotId);
+                data.setSensorType(profile.getSensorType());
+                data.setSensorValue(generateValue(profile));
+                data.setUnit(IotSensorCatalog.resolveUnit(profile.getSensorType()));
+                data.setSourceType("SIMULATED");
+                data.setQualityStatus("VALID");
+                data.setCreateTime(now);
+                data.setCreatedAt(now);
+                sensorDataService.saveDataAndCheckAlert(data);
+            }
+
+            device.setLastReportedAt(now);
+            deviceMapper.updateById(device);
         }
     }
 
-    private void createAndSave(String plotId, String type, double val, String unit) {
-        IotSensorData data = new IotSensorData();
-        data.setPlotId(plotId);
-        data.setSensorType(type);
-        data.setValue(BigDecimal.valueOf(val));
-        data.setUnit(unit);
-        data.setCreateTime(LocalDateTime.now());
+    private boolean shouldGenerate(IotSimulationProfile profile, LocalDateTime now) {
+        int interval = profile.getIntervalSeconds() != null && profile.getIntervalSeconds() > 0
+                ? profile.getIntervalSeconds()
+                : 600;
+        LocalDateTime latestReportedAt = sensorDataMapper.selectLatestReportedAt(profile.getDeviceId(), profile.getSensorType());
+        return latestReportedAt == null
+                || latestReportedAt.plusSeconds(interval).isBefore(now)
+                || latestReportedAt.plusSeconds(interval).isEqual(now);
+    }
 
-        sensorDataService.saveDataAndCheckAlert(data);
+    private BigDecimal generateValue(IotSimulationProfile profile) {
+        double base = profile.getBaseValue() != null ? profile.getBaseValue().doubleValue() : 0D;
+        double range = profile.getFluctuationRange() != null ? profile.getFluctuationRange().doubleValue() : 0D;
+        double probability = profile.getWarningProbability() != null ? profile.getWarningProbability().doubleValue() : 0D;
+        double target = profile.getWarningValue() != null ? profile.getWarningValue().doubleValue() : base;
+
+        double value;
+        if (RandomUtil.randomDouble(0D, 1D) < probability) {
+            double offset = Math.max(0.3D, range * 0.25D);
+            value = RandomUtil.randomDouble(target - offset, target + offset);
+        } else {
+            value = RandomUtil.randomDouble(base - range, base + range);
+        }
+
+        if (value < 0D) {
+            value = 0D;
+        }
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
     }
 }

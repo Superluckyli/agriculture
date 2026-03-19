@@ -11,6 +11,7 @@ import lizhuoer.agri.agri_system.module.purchase.domain.PurchaseOrder;
 import lizhuoer.agri.agri_system.module.purchase.domain.PurchaseOrderItem;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.PaymentCreateRequest;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderCreateRequest;
+import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderPayRequest;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.PurchaseOrderItemCreateRequest;
 import lizhuoer.agri.agri_system.module.purchase.domain.dto.ReceiveItemRequest;
 import lizhuoer.agri.agri_system.module.purchase.service.IPaymentRecordService;
@@ -45,16 +46,8 @@ public class PurchaseOrderController {
     }
 
     @PostMapping
-    public R<Void> add(@Valid @RequestBody PurchaseOrderCreateRequest req) {
-        PurchaseOrder order = new PurchaseOrder();
-        order.setSupplierId(req.getSupplierId());
-        order.setTotalAmount(req.getTotalAmount());
-        order.setPayMethod(req.getPayMethod());
-        order.setRemark(req.getRemark());
-        order.setStatus("draft");
-        order.setConfirmedBy(null);
-        orderService.save(order);
-        return R.ok();
+    public R<PurchaseOrder> add(@Valid @RequestBody PurchaseOrderCreateRequest req) {
+        return R.ok(orderService.createOrder(req));
     }
 
     @PutMapping
@@ -91,6 +84,13 @@ public class PurchaseOrderController {
         return R.ok(orderService.cancelOrder(id));
     }
 
+    @PutMapping("/{id}/pay")
+    public R<Void> pay(@PathVariable Long id, @Valid @RequestBody PurchaseOrderPayRequest req) {
+        Long operatorId = LoginUserContext.requireUser().getUserId();
+        orderService.payOrder(id, req.getPayMethod(), operatorId);
+        return R.ok();
+    }
+
     // --- 采购明细 ---
 
     @GetMapping("/{orderId}/items")
@@ -111,6 +111,22 @@ public class PurchaseOrderController {
         item.setLineAmount(req.getPurchaseQty().multiply(req.getUnitPrice()));
         item.setRemark(req.getRemark());
         itemService.save(item);
+        // 重算订单总金额
+        orderService.recalcTotalAmount(orderId);
+        return R.ok();
+    }
+
+    @PutMapping("/{orderId}/items")
+    public R<Void> replaceItems(@PathVariable Long orderId,
+                                @Valid @RequestBody List<PurchaseOrderItemCreateRequest> items) {
+        PurchaseOrder existing = orderService.getById(orderId);
+        if (existing == null) {
+            throw new RuntimeException("采购单不存在");
+        }
+        if (!"draft".equals(existing.getStatus())) {
+            throw new RuntimeException("仅草稿状态可编辑明细");
+        }
+        orderService.replaceItems(orderId, items);
         return R.ok();
     }
 
