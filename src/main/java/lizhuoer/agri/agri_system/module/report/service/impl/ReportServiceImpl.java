@@ -6,8 +6,13 @@ import lizhuoer.agri.agri_system.module.crop.batch.mapper.AgriCropBatchMapper;
 import lizhuoer.agri.agri_system.module.material.domain.MaterialInfo;
 import lizhuoer.agri.agri_system.module.material.mapper.MaterialInfoMapper;
 import lizhuoer.agri.agri_system.module.report.domain.ChartDataVO;
+import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.DashboardV2VO;
+import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
+import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
+import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsOverviewVO;
 import lizhuoer.agri.agri_system.module.report.domain.DashboardV2VO.*;
+import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.mapper.ReportMapper;
 import lizhuoer.agri.agri_system.module.report.service.IReportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,6 +105,80 @@ public class ReportServiceImpl implements IReportService {
         // 7. 低库存物资
         vo.setLowStockMaterials(buildLowStockList());
 
+        return vo;
+    }
+
+    @Override
+    public ReportAnalyticsOverviewVO getAnalyticsOverviewData(ReportAnalyticsFilterDTO filter) {
+        ReportAnalyticsOverviewVO vo = new ReportAnalyticsOverviewVO();
+        vo.setFilterContext(filter);
+
+        ReportAnalyticsOverviewVO.KpisVO kpis = new ReportAnalyticsOverviewVO.KpisVO();
+        kpis.setTaskCompletionRate(BigDecimal.ZERO);
+        kpis.setOnTimeExecutionRate(BigDecimal.ZERO);
+        kpis.setOverdueTaskCount(0);
+        kpis.setActiveBatchCount(0);
+        kpis.setOutputAchievementRate(BigDecimal.ZERO);
+        kpis.setPurchaseAmount(BigDecimal.ZERO);
+        kpis.setMaterialCost(BigDecimal.ZERO);
+        vo.setKpis(kpis);
+
+        return vo;
+    }
+
+    @Override
+    public TaskAnalyticsVO getTaskAnalyticsData(ReportAnalyticsFilterDTO filter) {
+        TaskAnalyticsVO vo = new TaskAnalyticsVO();
+        vo.setFilterContext(filter);
+
+        TaskAnalyticsVO.TrendVO trend = new TaskAnalyticsVO.TrendVO();
+        trend.setLabels(Collections.emptyList());
+        trend.setCreated(Collections.emptyList());
+        trend.setCompleted(Collections.emptyList());
+        trend.setOverdue(Collections.emptyList());
+        vo.setTrend(trend);
+
+        TaskAnalyticsVO.StatusDistributionVO statusDistribution = new TaskAnalyticsVO.StatusDistributionVO();
+        statusDistribution.setLabels(Collections.emptyList());
+        statusDistribution.setSeries(Collections.emptyList());
+        vo.setStatusDistribution(statusDistribution);
+
+        vo.setAssigneeRanking(Collections.emptyList());
+        vo.setAbnormalTasks(Collections.emptyList());
+        return vo;
+    }
+
+    @Override
+    public ProductionAnalyticsVO getProductionAnalyticsData(ReportAnalyticsFilterDTO filter) {
+        ProductionAnalyticsVO vo = new ProductionAnalyticsVO();
+        vo.setFilterContext(filter);
+        vo.setCropDistribution(Collections.emptyList());
+        vo.setOutputComparison(Collections.emptyList());
+
+        ProductionAnalyticsVO.HarvestTrendVO harvestTrend = new ProductionAnalyticsVO.HarvestTrendVO();
+        harvestTrend.setLabels(Collections.emptyList());
+        harvestTrend.setBatchCount(Collections.emptyList());
+        harvestTrend.setEstimatedOutput(Collections.emptyList());
+        vo.setHarvestTrend(harvestTrend);
+
+        vo.setRiskBatches(Collections.emptyList());
+        return vo;
+    }
+
+    @Override
+    public CostAnalyticsVO getCostAnalyticsData(ReportAnalyticsFilterDTO filter) {
+        CostAnalyticsVO vo = new CostAnalyticsVO();
+        vo.setFilterContext(filter);
+
+        CostAnalyticsVO.PurchaseTrendVO purchaseTrend = new CostAnalyticsVO.PurchaseTrendVO();
+        purchaseTrend.setLabels(Collections.emptyList());
+        purchaseTrend.setAmount(Collections.emptyList());
+        purchaseTrend.setOrderCount(Collections.emptyList());
+        vo.setPurchaseTrend(purchaseTrend);
+
+        vo.setMaterialCostTopN(Collections.emptyList());
+        vo.setCategoryCostShare(Collections.emptyList());
+        vo.setAbnormalCostItems(Collections.emptyList());
         return vo;
     }
 

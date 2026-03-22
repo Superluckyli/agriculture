@@ -1,4 +1,4 @@
-﻿openapi: 3.0.3
+openapi: 3.0.3
 info:
   title: Agri System API Contract
   version: 1.0.0
@@ -47,7 +47,57 @@ paths:
             example:
               username: admin
               password: "123456"
-      responses:
+    
+  parameters:
+    ReportStartDate:
+      in: query
+      name: startDate
+      required: true
+      schema:
+        type: string
+        format: date
+    ReportEndDate:
+      in: query
+      name: endDate
+      required: true
+      schema:
+        type: string
+        format: date
+    ReportGranularity:
+      in: query
+      name: granularity
+      schema:
+        type: string
+    ReportFarmlandId:
+      in: query
+      name: farmlandId
+      schema:
+        type: integer
+        format: int64
+    ReportVarietyId:
+      in: query
+      name: varietyId
+      schema:
+        type: integer
+        format: int64
+    ReportAssigneeId:
+      in: query
+      name: assigneeId
+      schema:
+        type: integer
+        format: int64
+    ReportMaterialCategory:
+      in: query
+      name: materialCategory
+      schema:
+        type: string
+    ReportSupplierId:
+      in: query
+      name: supplierId
+      schema:
+        type: integer
+        format: int64
+  responses:
         '200':
           description: Login result (R<LoginData>)
           content:
@@ -1805,6 +1855,135 @@ paths:
         '500':
           $ref: '#/components/responses/BizFail'
 
+  /report/analytics/overview:
+    get:
+      tags: [Report]
+      summary: Report analytics overview
+      operationId: getReportAnalyticsOverview
+      parameters:
+        - in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: granularity
+          schema:
+            type: string
+        - in: query
+          name: farmlandId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: varietyId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: assigneeId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: materialCategory
+          schema:
+            type: string
+        - in: query
+          name: supplierId
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: R<ReportAnalyticsOverviewResponse>
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ReportAnalyticsOverviewResponse'
+  /report/analytics/task:
+    get:
+      tags: [Report]
+      summary: Report task analytics
+      operationId: getReportTaskAnalytics
+      parameters:
+        - $ref: '#/components/parameters/ReportStartDate'
+        - $ref: '#/components/parameters/ReportEndDate'
+        - $ref: '#/components/parameters/ReportGranularity'
+        - $ref: '#/components/parameters/ReportFarmlandId'
+        - $ref: '#/components/parameters/ReportVarietyId'
+        - $ref: '#/components/parameters/ReportAssigneeId'
+      responses:
+        '200':
+          description: R<TaskAnalyticsResponse>
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TaskAnalyticsResponse'
+  /report/analytics/production:
+    get:
+      tags: [Report]
+      summary: Report production analytics
+      operationId: getReportProductionAnalytics
+      parameters:
+        - $ref: '#/components/parameters/ReportStartDate'
+        - $ref: '#/components/parameters/ReportEndDate'
+        - $ref: '#/components/parameters/ReportGranularity'
+        - $ref: '#/components/parameters/ReportFarmlandId'
+        - $ref: '#/components/parameters/ReportVarietyId'
+      responses:
+        '200':
+          description: R<ProductionAnalyticsResponse>
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductionAnalyticsResponse'
+  /report/analytics/cost:
+    get:
+      tags: [Report]
+      summary: Report cost analytics
+      operationId: getReportCostAnalytics
+      parameters:
+        - $ref: '#/components/parameters/ReportStartDate'
+        - $ref: '#/components/parameters/ReportEndDate'
+        - $ref: '#/components/parameters/ReportGranularity'
+        - $ref: '#/components/parameters/ReportMaterialCategory'
+        - $ref: '#/components/parameters/ReportSupplierId'
+      responses:
+        '200':
+          description: R<CostAnalyticsResponse>
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CostAnalyticsResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2425,3 +2604,179 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/NameValue'
+
+    ReportAnalyticsFilter:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        granularity:
+          type: string
+        farmlandId:
+          type: integer
+          format: int64
+        varietyId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+        materialCategory:
+          type: string
+        supplierId:
+          type: integer
+          format: int64
+    ReportOverviewKpis:
+      type: object
+      properties:
+        taskCompletionRate:
+          type: number
+        onTimeExecutionRate:
+          type: number
+        overdueTaskCount:
+          type: integer
+        activeBatchCount:
+          type: integer
+        outputAchievementRate:
+          type: number
+        purchaseAmount:
+          type: number
+        materialCost:
+          type: number
+        updatedAt:
+          type: string
+    ReportAnalyticsOverviewResponse:
+      type: object
+      properties:
+        filterContext:
+          $ref: '#/components/schemas/ReportAnalyticsFilter'
+        kpis:
+          $ref: '#/components/schemas/ReportOverviewKpis'
+    TaskTrendData:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        created:
+          type: array
+          items:
+            type: integer
+        completed:
+          type: array
+          items:
+            type: integer
+        overdue:
+          type: array
+          items:
+            type: integer
+    TaskStatusSeriesItem:
+      type: object
+      properties:
+        name:
+          type: string
+        data:
+          type: array
+          items:
+            type: integer
+    TaskStatusDistribution:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskStatusSeriesItem'
+    TaskAnalyticsResponse:
+      type: object
+      properties:
+        filterContext:
+          $ref: '#/components/schemas/ReportAnalyticsFilter'
+        trend:
+          $ref: '#/components/schemas/TaskTrendData'
+        statusDistribution:
+          $ref: '#/components/schemas/TaskStatusDistribution'
+        assigneeRanking:
+          type: array
+          items:
+            type: object
+        abnormalTasks:
+          type: array
+          items:
+            type: object
+    HarvestTrendData:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        batchCount:
+          type: array
+          items:
+            type: integer
+        estimatedOutput:
+          type: array
+          items:
+            type: number
+    ProductionAnalyticsResponse:
+      type: object
+      properties:
+        filterContext:
+          $ref: '#/components/schemas/ReportAnalyticsFilter'
+        cropDistribution:
+          type: array
+          items:
+            type: object
+        outputComparison:
+          type: array
+          items:
+            type: object
+        harvestTrend:
+          $ref: '#/components/schemas/HarvestTrendData'
+        riskBatches:
+          type: array
+          items:
+            type: object
+    PurchaseTrendData:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        amount:
+          type: array
+          items:
+            type: number
+        orderCount:
+          type: array
+          items:
+            type: integer
+    CostAnalyticsResponse:
+      type: object
+      properties:
+        filterContext:
+          $ref: '#/components/schemas/ReportAnalyticsFilter'
+        purchaseTrend:
+          $ref: '#/components/schemas/PurchaseTrendData'
+        materialCostTopN:
+          type: array
+          items:
+            type: object
+        categoryCostShare:
+          type: array
+          items:
+            type: object
+        abnormalCostItems:
+          type: array
+          items:
+            type: object
