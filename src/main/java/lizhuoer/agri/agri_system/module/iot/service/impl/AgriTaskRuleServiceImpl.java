@@ -65,27 +65,30 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         return super.updateById(entity);
     }
 
+    // 检查预警规则
     @Override
     public void checkAndTriggerTask(IotSensorData data) {
         if (!isDataUsable(data) || data.getFarmlandId() == null) {
             return;
         }
-
+        // 获取所有启用的预警规则
         List<AgriTaskRule> rules = this.list(new LambdaQueryWrapper<AgriTaskRule>()
                 .eq(AgriTaskRule::getSensorType, normalizeSensorType(data.getSensorType()))
                 .eq(AgriTaskRule::getIsEnable, 1));
         if (CollUtil.isEmpty(rules)) {
             return;
         }
-
+        // 遍历所有启用的预警规则
         for (AgriTaskRule rule : rules) {
             normalizeRule(rule);
             if (isTriggered(rule, data.getSensorValue())) {
+                // 创建预警事件并派单
                 createWarningEventAndDispatch(data, rule);
             }
         }
     }
 
+    // 检查数据是否可用
     private boolean isDataUsable(IotSensorData data) {
         if (data == null || data.getSensorValue() == null) {
             return false;
@@ -93,6 +96,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         return !"INVALID".equalsIgnoreCase(StrUtil.blankToDefault(data.getQualityStatus(), "VALID"));
     }
 
+    // 检查是否触发
     private boolean isTriggered(AgriTaskRule rule, BigDecimal sensorValue) {
         String triggerCondition = StrUtil.blankToDefault(rule.getTriggerCondition(), "OUTSIDE_RANGE");
         return switch (triggerCondition) {
@@ -103,6 +107,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         };
     }
 
+    // 创建预警事件并派单
     private void createWarningEventAndDispatch(IotSensorData data, AgriTaskRule rule) {
         LocalDateTime now = LocalDateTime.now();
         Long batchId = batchMapper.selectActiveBatchIdByFarmlandId(data.getFarmlandId());
@@ -131,7 +136,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
             markDispatchFailed(event, mode, "当前地块无活跃批次，无法自动创建任务");
             return;
         }
-
+        // 查找可复用的任务
         AgriTask reusableTask = findReusableTask(rule, data.getFarmlandId(), batchId, event.getTriggeredAt());
         if (reusableTask != null) {
             event.setTaskId(reusableTask.getTaskId());
@@ -142,6 +147,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
             return;
         }
 
+        // 创建任务
         try {
             AgriTask task = buildTask(rule, data, batchId);
             taskService.createAutoTask(task);
@@ -157,6 +163,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         }
     }
 
+    // 构建任务
     private AgriTask buildTask(AgriTaskRule rule, IotSensorData data, Long batchId) {
         LocalDateTime now = LocalDateTime.now();
         AgriTask task = new AgriTask();
@@ -175,6 +182,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         return task;
     }
 
+    // 构建任务名称
     private String buildTaskName(AgriTaskRule rule, Long farmlandId) {
         String farmlandLabel = "地块" + farmlandId;
         AgriFarmland farmland = farmlandMapper.selectById(farmlandId);
@@ -188,6 +196,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         return "[IoT预警] " + farmlandLabel + " " + rule.getRuleName();
     }
 
+    // 查找可重用的任务
     private AgriTask findReusableTask(AgriTaskRule rule, Long farmlandId, Long batchId, LocalDateTime triggeredAt) {
         int cooldown = rule.getCooldownMinutes() != null && rule.getCooldownMinutes() > 0
                 ? rule.getCooldownMinutes()
@@ -202,6 +211,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
                 .last("LIMIT 1"), false);
     }
 
+    // 标记派单失败
     private void markDispatchFailed(IotWarningEvent event, String mode, String reason) {
         event.setHandleStatus("FAILED");
         event.setDispatchMode(mode);
@@ -211,6 +221,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         saveDispatchRecord(event, mode, "FAILED", null, null, event.getFailureReason());
     }
 
+    // 保存派单记录
     private void saveDispatchRecord(IotWarningEvent event,
             String mode,
             String status,
@@ -229,6 +240,7 @@ public class AgriTaskRuleServiceImpl extends ServiceImpl<AgriTaskRuleMapper, Agr
         dispatchRecordMapper.insert(record);
     }
 
+    // 规范化规则
     private void normalizeRule(AgriTaskRule rule) {
         if (rule == null) {
             return;

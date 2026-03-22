@@ -23,6 +23,7 @@ public class MaterialInfo {
     private String unit;
     private BigDecimal currentStock;
     private BigDecimal safeThreshold;
+    // 建议采购数量
     private BigDecimal suggestPurchaseQty;
     private Long supplierId;
 

@@ -35,11 +35,11 @@ public class ChatServiceImpl implements IChatService {
     private final ChatEventPublisher eventPublisher;
 
     public ChatServiceImpl(ChatConversationMapper conversationMapper,
-                           ChatMessageMapper messageMapper,
-                           ChatReadStateMapper readStateMapper,
-                           ISysUserService userService,
-                           ChatEventPublisher eventPublisher,
-                           ObjectMapper objectMapper) {
+            ChatMessageMapper messageMapper,
+            ChatReadStateMapper readStateMapper,
+            ISysUserService userService,
+            ChatEventPublisher eventPublisher,
+            ObjectMapper objectMapper) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
         this.readStateMapper = readStateMapper;
@@ -47,22 +47,26 @@ public class ChatServiceImpl implements IChatService {
         this.eventPublisher = eventPublisher;
     }
 
+    // 获取所有用户
     @Override
     public List<ChatUserVO> listAvailableUsers(Long currentUserId) {
         return userService.list(new LambdaQueryWrapper<SysUser>()
-                        .eq(SysUser::getStatus, 1)
-                        .ne(currentUserId != null, SysUser::getUserId, currentUserId)
-                        .orderByAsc(SysUser::getRealName)
-                        .orderByAsc(SysUser::getUsername))
+                .eq(SysUser::getStatus, 1)
+                .ne(currentUserId != null, SysUser::getUserId, currentUserId)
+                .orderByAsc(SysUser::getRealName)
+                .orderByAsc(SysUser::getUsername))
                 .stream()
                 .map(this::toChatUser)
                 .toList();
     }
 
+    // 获取所有会话
     @Override
     public List<ChatConversationSummaryVO> listConversations(Long currentUserId) {
         return conversationMapper.selectConversationSummaries(currentUserId);
     }
+
+    // 获取消息列表
 
     @Override
     public PageResult<ChatMessageVO> listMessages(Long currentUserId, Long conversationId, int pageNum, int pageSize) {
@@ -71,8 +75,7 @@ public class ChatServiceImpl implements IChatService {
                 new Page<>(pageNum, pageSize),
                 new LambdaQueryWrapper<ChatMessage>()
                         .eq(ChatMessage::getConversationId, conversationId)
-                        .orderByDesc(ChatMessage::getId)
-        );
+                        .orderByDesc(ChatMessage::getId));
         PageResult<ChatMessageVO> result = new PageResult<>();
         result.setItems(page.getRecords().stream().map(this::toMessageVO).toList());
         result.setPage(page.getCurrent());
@@ -81,6 +84,7 @@ public class ChatServiceImpl implements IChatService {
         return result;
     }
 
+    // 获取或创建直接会话
     @Override
     public ChatConversationSummaryVO getOrCreateDirectConversation(Long currentUserId, Long targetUserId) {
         if (currentUserId == null || targetUserId == null) {
@@ -122,14 +126,21 @@ public class ChatServiceImpl implements IChatService {
         return summary;
     }
 
+    // 标记会话中信息已读
     @Override
     @Transactional
     public void markConversationRead(Long currentUserId, Long conversationId) {
+        // 校验用户是否在会话中
         ChatConversation conversation = requireConversationMember(currentUserId, conversationId);
+        // 获取会话中的最新消息
         ChatMessage latestMessage = messageMapper.selectLatestByConversationId(conversation.getId());
+        // 如果没有消息，直接返回
         if (latestMessage == null) {
+            // 此时会话中没有消息，将未读消息数量置为0
             ChatConversationSummaryVO summary = requireConversationSummary(currentUserId, conversationId);
+            // 调用发布器，更新会话信息
             eventPublisher.publishConversationUpdate(currentUserId, summary);
+            // 掉用发布器，同步已读状态
             eventPublisher.publishReadSync(currentUserId, conversationId);
             return;
         }
@@ -151,12 +162,13 @@ public class ChatServiceImpl implements IChatService {
                     .eq(ChatReadState::getConversationId, conversationId)
                     .eq(ChatReadState::getUserId, currentUserId));
         }
-
+        // 包含未读消息数量unreadCount
         ChatConversationSummaryVO summary = requireConversationSummary(currentUserId, conversationId);
         eventPublisher.publishConversationUpdate(currentUserId, summary);
         eventPublisher.publishReadSync(currentUserId, conversationId);
     }
 
+    // 发送消息
     @Override
     @Transactional
     public ChatMessageVO sendMessage(Long currentUserId, Long conversationId, String content) {
@@ -196,11 +208,13 @@ public class ChatServiceImpl implements IChatService {
 
         ChatMessageVO messageVO = toMessageVO(message);
         eventPublisher.publishMessage(currentUserId, receiverId, messageVO);
-        eventPublisher.publishConversationUpdate(currentUserId, requireConversationSummary(currentUserId, conversationId));
+        eventPublisher.publishConversationUpdate(currentUserId,
+                requireConversationSummary(currentUserId, conversationId));
         eventPublisher.publishConversationUpdate(receiverId, requireConversationSummary(receiverId, conversationId));
         return messageVO;
     }
 
+    // 校验用户是否属于会话
     private ChatConversation requireConversationMember(Long userId, Long conversationId) {
         ChatConversation conversation = conversationMapper.selectById(conversationId);
         if (conversation == null) {
@@ -212,6 +226,7 @@ public class ChatServiceImpl implements IChatService {
         return conversation;
     }
 
+    // 校验用户是否激活
     private SysUser requireActiveUser(Long userId) {
         SysUser user = userService.getById(userId);
         if (user == null || user.getStatus() == null || user.getStatus() != 1) {
@@ -220,6 +235,7 @@ public class ChatServiceImpl implements IChatService {
         return user;
     }
 
+    // 校验会话摘要
     private ChatConversationSummaryVO requireConversationSummary(Long userId, Long conversationId) {
         ChatConversationSummaryVO summary = conversationMapper.selectConversationSummaryForUser(userId, conversationId);
         if (summary == null) {
@@ -231,6 +247,7 @@ public class ChatServiceImpl implements IChatService {
         return summary;
     }
 
+    // 转换为 ChatUserVO
     private ChatUserVO toChatUser(SysUser user) {
         ChatUserVO vo = new ChatUserVO();
         vo.setUserId(user.getUserId());
@@ -240,12 +257,14 @@ public class ChatServiceImpl implements IChatService {
         return vo;
     }
 
+    // 获取显示名称
     private String displayNameOf(SysUser user) {
         return user.getRealName() != null && !user.getRealName().isBlank()
                 ? user.getRealName()
                 : user.getUsername();
     }
 
+    // 转换为 ChatMessageVO
     private ChatMessageVO toMessageVO(ChatMessage message) {
         ChatMessageVO vo = new ChatMessageVO();
         vo.setMessageId(message.getId());

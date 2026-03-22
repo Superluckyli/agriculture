@@ -39,7 +39,7 @@ public class JwtTokenUtil {
             return null;
         }
         JWT jwt = JWTUtil.parseToken(token);
-        // 校验过期时间（无 exp 声明的旧令牌视为已过期）
+        // 校验过期时间无 exp 声明的旧令牌视为已过期
         Long exp = Convert.toLong(jwt.getPayload("exp"), null);
         if (exp == null || System.currentTimeMillis() > exp) {
             return null;

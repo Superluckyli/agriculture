@@ -16,9 +16,13 @@ public class AgriTaskMaterial {
     private Long id;
     private Long taskId;
     private Long materialId;
+    // 建议采购数量
     private BigDecimal suggestedQty;
+    // 实际采购数量
     private BigDecimal actualQty;
+    // 建议采购单价
     private BigDecimal unitPrice;
+    // 偏差原因
     private String deviationReason;
     private LocalDateTime createdAt;
 

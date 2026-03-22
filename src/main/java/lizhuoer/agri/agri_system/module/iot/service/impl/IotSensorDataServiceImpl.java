@@ -32,6 +32,7 @@ public class IotSensorDataServiceImpl extends ServiceImpl<IotSensorDataMapper, I
         this.farmlandMapper = farmlandMapper;
     }
 
+    // 保存传感器数据并检查预警规则
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveDataAndCheckAlert(IotSensorData data) {
@@ -51,9 +52,10 @@ public class IotSensorDataServiceImpl extends ServiceImpl<IotSensorDataMapper, I
         if (StrUtil.isBlank(data.getPlotId()) && data.getFarmlandId() != null) {
             data.setPlotId(resolvePlotId(data.getFarmlandId()));
         }
-
+        // 保存传感器数据
         this.save(data);
         sseManager.broadcast("iot-data", buildPayload(data));
+        // 检查预警规则
         ruleService.checkAndTriggerTask(data);
     }
 

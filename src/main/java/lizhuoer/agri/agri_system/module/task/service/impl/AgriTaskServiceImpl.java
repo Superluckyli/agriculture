@@ -73,6 +73,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         this.purchaseOrderItemService = purchaseOrderItemService;
     }
 
+    // 自动创建预警规则触发的任务
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createAutoTask(AgriTask task) {
@@ -83,6 +84,8 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
+
+        // 如果是高优先级任务，设置为待复核，否则设置为已创建
         task.setStatusV2(task.getPriority() != null && task.getPriority() == 1
                 ? TaskStatusV2.PENDING_REVIEW
                 : TaskStatusV2.CREATED);
@@ -102,6 +105,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         taskLogService.save(log);
     }
 
+    // 手动创建任务
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createTask(AgriTask task, LoginUser operator) {
@@ -112,6 +116,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (task.getCreateTime() == null) {
             task.setCreateTime(now);
         }
+
         String initStatus = TaskStatusV2.CREATED;
         task.setStatusV2(initStatus);
         task.setAssigneeId(null);
@@ -125,13 +130,14 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         task.setRejectReason(null);
         task.setUpdateTime(now);
         task.setVersion(0);
+
         if (operator != null) {
             task.setCreateBy(operator.getUserId());
             task.setUpdateBy(operator.getUserId());
         }
         this.save(task);
 
-        // Write task log
+        // 写入任务日志
         AgriTaskLog log = new AgriTaskLog();
         log.setTaskId(task.getTaskId());
         log.setBatchId(task.getBatchId());
@@ -143,6 +149,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         taskLogService.save(log);
     }
 
+    // 派单
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assignTask(TaskAssignDTO dto, LoginUser operator, String traceId) {
@@ -155,8 +162,9 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (operator == null || !operator.hasAnyRole("ADMIN", "FARM_OWNER", "TECHNICIAN")) {
             throw new RuntimeException("仅管理员或技术人员可派单");
         }
-
+        // 获取任务
         AgriTask task = mustGetTask(dto.getTaskId());
+        // 验证执行人
         ensureAssigneeValid(dto.getAssigneeId());
 
         // 允许从 created / rejected_reassign 派单，统一进入 pending_accept
@@ -165,6 +173,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (idempotent) {
             return;
         }
+        // 检查任务状态
         String currentStatus = task.getStatusV2();
         if (!TaskStatusV2.CREATED.equals(currentStatus)
                 && !TaskStatusV2.REJECTED_REASSIGN.equals(currentStatus)
@@ -194,7 +203,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             throw new RuntimeException("任务状态已变化，派单失败");
         }
 
-        // Write task log
+        // 写入任务日志
         AgriTaskLog log = new AgriTaskLog();
         log.setTaskId(dto.getTaskId());
         log.setBatchId(task.getBatchId());
@@ -209,6 +218,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         taskLogService.save(log);
     }
 
+    // 接单
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void acceptTask(TaskAcceptDTO dto, LoginUser operator, String traceId) {
@@ -218,20 +228,25 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (operator == null || !operator.hasRole(ROLE_WORKER)) {
             throw new RuntimeException("仅工人可接单");
         }
-
+        // 获取任务
         AgriTask task = mustGetTask(dto.getTaskId());
+        // 幂等判断
         if (TaskStatusV2.IN_PROGRESS.equals(task.getStatusV2())
                 && Objects.equals(task.getAcceptBy(), operator.getUserId())) {
             return;
         }
+        // 检查任务状态
         if (!TaskStatusV2.PENDING_ACCEPT.equals(task.getStatusV2())) {
             throw new RuntimeException("仅待接单任务可接单");
         }
+        // 检查执行人
         if (!Objects.equals(task.getAssigneeId(), operator.getUserId())) {
             throw new RuntimeException("仅被派单工人可接单");
         }
 
         LocalDateTime now = LocalDateTime.now();
+
+        // 更新任务状态
         int updated = baseMapper.acceptTask(
                 dto.getTaskId(),
                 operator.getUserId(),
@@ -241,7 +256,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                 TaskStatusV2.PENDING_ACCEPT,
                 TaskStatusV2.IN_PROGRESS,
                 safeVersion(task));
-
+        // 乐观锁
         if (updated == 0) {
             AgriTask latest = this.getById(dto.getTaskId());
             if (latest != null
@@ -252,7 +267,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             throw new RuntimeException("任务状态已变化，接单失败");
         }
 
-        // Write task log
+        // 写入任务日志
         AgriTaskLog log = new AgriTaskLog();
         log.setTaskId(dto.getTaskId());
         log.setBatchId(task.getBatchId());
@@ -274,8 +289,9 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (operator == null || !operator.hasRole(ROLE_WORKER)) {
             throw new RuntimeException("仅工人可拒单");
         }
-
+        // 获取任务
         AgriTask task = mustGetTask(dto.getTaskId());
+        // 幂等判断
         if (TaskStatusV2.REJECTED_REASSIGN.equals(task.getStatusV2())
                 && Objects.equals(task.getRejectBy(), operator.getUserId())) {
             return;
@@ -309,7 +325,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             throw new RuntimeException("任务状态已变化，拒单失败");
         }
 
-        // Write task log
+        // 写入任务日志
         AgriTaskLog log = new AgriTaskLog();
         log.setTaskId(dto.getTaskId());
         log.setBatchId(task.getBatchId());
@@ -323,6 +339,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         taskLogService.save(log);
     }
 
+    // 完成任务
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void completeTask(Long taskId, LoginUser operator, String traceId) {
@@ -332,11 +349,13 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (operator == null || !operator.hasRole(ROLE_WORKER)) {
             throw new RuntimeException("仅工人可完成任务");
         }
-
+        // 获取任务
         AgriTask task = mustGetTask(taskId);
+        // 检查任务状态
         if (!TaskStatusV2.IN_PROGRESS.equals(task.getStatusV2())) {
             throw new RuntimeException("仅执行中任务可完成");
         }
+        // 检查执行人
         if (!Objects.equals(task.getAssigneeId(), operator.getUserId())) {
             throw new RuntimeException("仅被派单工人可完成任务");
         }
@@ -363,7 +382,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. CAS update task status
+        // 1. 使用乐观锁Compare-And-Swap操作， 更新任务状态
         int updated = baseMapper.completeTask(
                 taskId, operator.getUserId(), now, now,
                 TaskStatusV2.IN_PROGRESS, TaskStatusV2.COMPLETED,
@@ -372,7 +391,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             throw new RuntimeException("任务状态已变化，完成失败");
         }
 
-        // 2. Write task log
+        // 2. 写入任务日志
         AgriTaskLog log = new AgriTaskLog();
         log.setTaskId(taskId);
         log.setBatchId(task.getBatchId());
@@ -384,20 +403,22 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         log.setCreatedAt(now);
         taskLogService.save(log);
 
-        // 3. Deduct stock for each task material (actual_qty)
+        // 3. 扣减任务关联物料的库存
         LambdaQueryWrapper<AgriTaskMaterial> mw = new LambdaQueryWrapper<>();
+
         mw.eq(AgriTaskMaterial::getTaskId, taskId);
+        // 获取任务关联物料
         List<AgriTaskMaterial> materials = taskMaterialService.list(mw);
 
         List<MaterialInfo> belowThreshold = new ArrayList<>();
-
+        // 遍历任务关联物料
         for (AgriTaskMaterial tm : materials) {
             BigDecimal qty = tm.getActualQty();
             if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
 
-            // Optimistic lock retry
+            // 使用乐观锁重试，尝试扣减库存，最多重试MAX_RETRY次
             boolean deducted = false;
             for (int i = 0; i < MAX_RETRY; i++) {
                 MaterialInfo mat = materialInfoMapper.selectById(tm.getMaterialId());
@@ -408,10 +429,12 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                     throw new RuntimeException("库存不足: " + mat.getName()
                             + " 需要 " + qty + " 当前 " + mat.getCurrentStock());
                 }
+                // 获取乐观锁当前版本
                 int ver = mat.getVersion() == null ? 0 : mat.getVersion();
+                // 扣减库存
                 int rows = materialInfoMapper.deductStock(tm.getMaterialId(), qty, ver);
                 if (rows > 0) {
-                    // Write stock log
+                    // 写入库存日志
                     MaterialStockLog sl = new MaterialStockLog();
                     sl.setMaterialId(tm.getMaterialId());
                     sl.setChangeType("OUT");
@@ -424,7 +447,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                     sl.setCreatedAt(now);
                     stockLogService.save(sl);
 
-                    // Check threshold
+                    // 检查库存是否低于阈值
                     BigDecimal afterStock = mat.getCurrentStock().subtract(qty);
                     if (mat.getSafeThreshold() != null
                             && afterStock.compareTo(mat.getSafeThreshold()) < 0) {
@@ -435,7 +458,9 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                     break;
                 }
                 // 乐观锁冲突退避
-                try { Thread.sleep(20); } catch (InterruptedException e) {
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("库存操作被中断", e);
                 }
@@ -445,28 +470,33 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             }
         }
 
-        // 4. Generate purchase drafts for below-threshold materials
+        // 4. 为低于阈值的物料生成采购草稿
         if (!belowThreshold.isEmpty()) {
             generatePurchaseDrafts(belowThreshold, operator.getUserId(), now);
         }
     }
 
+    // 为低于阈值的物料生成采购草稿
     private void generatePurchaseDrafts(List<MaterialInfo> materials, Long operatorId, LocalDateTime now) {
-        // Group by supplierId
+        // 按供应商分组
         Map<Long, List<MaterialInfo>> grouped = new HashMap<>();
         for (MaterialInfo m : materials) {
-            if (m.getSupplierId() == null) continue;
+            // 如果物料没有供应商，则跳过
+            if (m.getSupplierId() == null)
+                continue;
+            // 使用computeIfAbsent方法，如果key不存在，则创建一个新的ArrayList并put进去，然后返回
             grouped.computeIfAbsent(m.getSupplierId(), k -> new ArrayList<>()).add(m);
         }
-
+        // 遍历分组后的物料
         for (Map.Entry<Long, List<MaterialInfo>> entry : grouped.entrySet()) {
             Long supplierId = entry.getKey();
 
-            // Idempotent: check if draft already exists for this supplier today
+            // 幂等性：检查今天是否已为该供应商创建采购草稿
             LambdaQueryWrapper<PurchaseOrder> existCheck = new LambdaQueryWrapper<>();
             existCheck.eq(PurchaseOrder::getSupplierId, supplierId)
                     .eq(PurchaseOrder::getStatus, "draft")
                     .ge(PurchaseOrder::getCreatedAt, now.toLocalDate().atStartOfDay());
+            // 如果已存在采购草稿，则跳过
             if (purchaseOrderService.count(existCheck) > 0) {
                 continue;
             }
@@ -480,11 +510,13 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
             po.setUpdatedAt(now);
             po.setTotalAmount(BigDecimal.ZERO);
             purchaseOrderService.save(po);
-
+            // 计算采购总金额
             BigDecimal total = BigDecimal.ZERO;
             for (MaterialInfo m : entry.getValue()) {
                 BigDecimal purchaseQty = m.getSuggestPurchaseQty() != null
+                        // 如果有建议采购数量，则使用建议采购数量
                         ? m.getSuggestPurchaseQty()
+                        // 否则使用安全阈值减去当前库存， 最小值为1
                         : m.getSafeThreshold().subtract(m.getCurrentStock()).max(BigDecimal.ONE);
                 BigDecimal unitPrice = m.getUnitPrice() != null ? m.getUnitPrice() : BigDecimal.ZERO;
                 BigDecimal lineAmount = purchaseQty.multiply(unitPrice);
@@ -499,8 +531,9 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
                 purchaseOrderItemService.save(item);
                 total = total.add(lineAmount);
             }
-
+            // 设置采购总金额
             po.setTotalAmount(total);
+            // 更新采购订单
             purchaseOrderService.updateById(po);
         }
     }
@@ -515,9 +548,11 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         if (!operator.hasAnyRole("ADMIN", "FARM_OWNER", "MANAGER", "TECHNICIAN")) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "仅管理角色或技术人员可复核任务");
         }
-
+        // 获取任务
         AgriTask task = mustGetTask(taskId);
+        // 设置目标状态
         String toStatus = approved ? TaskStatusV2.CREATED : TaskStatusV2.REJECTED_REVIEW;
+        // 断言状态机转换
         TaskStatusV2.assertTransition(task.getStatusV2(), toStatus);
 
         LocalDateTime now = LocalDateTime.now();
@@ -614,6 +649,7 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
     }
 
+    // 强制获取任务
     private AgriTask mustGetTask(Long taskId) {
         AgriTask task = this.getById(taskId);
         if (task == null) {
@@ -636,10 +672,12 @@ public class AgriTaskServiceImpl extends ServiceImpl<AgriTaskMapper, AgriTask> i
         }
     }
 
+    // 安全获取版本号用于乐观锁
     private int safeVersion(AgriTask task) {
         return task.getVersion() == null ? 0 : task.getVersion();
     }
 
+    // 显示名称
     private String toDisplayName(SysUser user) {
         if (user == null) {
             return null;
