@@ -2,6 +2,8 @@ package lizhuoer.agri.agri_system.module.report;
 
 import lizhuoer.agri.agri_system.module.crop.batch.mapper.AgriCropBatchMapper;
 import lizhuoer.agri.agri_system.module.material.mapper.MaterialInfoMapper;
+import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
+import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsOverviewVO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
@@ -18,7 +20,6 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -128,6 +129,74 @@ class ReportServiceImplTest {
         assertThat(result.getAbnormalTasks()).hasSize(1);
         assertThat(result.getAbnormalTasks().get(0).getTaskName()).isEqualTo("旱地排水沟疏通");
         assertThat(result.getAbnormalTasks().get(0).getOverdueDays()).isEqualTo(3);
+    }
+
+    @Test
+    void buildsProductionAnalyticsDataFromMapperResults() {
+        when(reportMapper.listAnalyticsCropDistribution(any(), any()))
+                .thenReturn(List.of(
+                        row("varietyId", 1L, "cropVariety", "水稻", "batchCount", 2),
+                        row("varietyId", 2L, "cropVariety", "小麦", "batchCount", 1)));
+        when(reportMapper.listAnalyticsOutputComparison(any(), any()))
+                .thenReturn(List.of(
+                        row("batchId", 1L, "batchNo", "B-2026-001", "cropVariety", "水稻",
+                                "targetOutput", new BigDecimal("100"), "actualOutput", new BigDecimal("85"))));
+        when(reportMapper.countAnalyticsHarvestTrend(any(), any(), any()))
+                .thenReturn(List.of(
+                        row("label", "2026-06", "batchCount", 2, "estimatedOutput", new BigDecimal("14000"))));
+        when(reportMapper.listAnalyticsRiskBatches(any(), any()))
+                .thenReturn(List.of(
+                        row("batchId", 9L, "batchNo", "B-2026-009", "cropVariety", "玉米", "farmlandName", "一号田",
+                                "targetOutput", new BigDecimal("200"), "actualOutput", new BigDecimal("120"),
+                                "estimatedHarvestDate", "2026-06-20", "stage", "灌浆期")));
+
+        ProductionAnalyticsVO result = service.getProductionAnalyticsData(filter());
+
+        assertThat(result.getCropDistribution()).hasSize(2);
+        assertThat(result.getCropDistribution().get(0).getCropVariety()).isEqualTo("水稻");
+        assertThat(result.getOutputComparison()).hasSize(1);
+        assertThat(result.getOutputComparison().get(0).getAchievementRate()).isEqualByComparingTo("85.0");
+        assertThat(result.getHarvestTrend().getLabels()).containsExactly("2026-06");
+        assertThat(result.getHarvestTrend().getBatchCount()).containsExactly(2);
+        assertThat(result.getHarvestTrend().getEstimatedOutput()).containsExactly(new BigDecimal("14000"));
+        assertThat(result.getRiskBatches()).hasSize(1);
+        assertThat(result.getRiskBatches().get(0).getAchievementRate()).isEqualByComparingTo("60.0");
+    }
+
+    @Test
+    void buildsCostAnalyticsDataFromMapperResults() {
+        when(reportMapper.sumAnalyticsPurchaseTrend(any(), any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        row("label", "2026-03-01", "amount", new BigDecimal("1000"), "orderCount", 2),
+                        row("label", "2026-03-02", "amount", new BigDecimal("300"), "orderCount", 1)));
+        when(reportMapper.sumAnalyticsMaterialCostTopN(any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        row("materialId", 1L, "name", "复合肥料", "category", "肥料",
+                                "consumedQty", new BigDecimal("120"), "cost", new BigDecimal("288")),
+                        row("materialId", 2L, "name", "杀虫剂", "category", "农药",
+                                "consumedQty", new BigDecimal("4"), "cost", new BigDecimal("340"))));
+        when(reportMapper.sumAnalyticsCategoryCostShare(any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        row("category", "肥料", "cost", new BigDecimal("288")),
+                        row("category", "农药", "cost", new BigDecimal("72"))));
+        when(reportMapper.listAnalyticsAbnormalCostItems(any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        row("materialId", 2L, "materialName", "杀虫剂", "category", "农药",
+                                "cost", new BigDecimal("340"), "consumedQty", new BigDecimal("4"),
+                                "supplierName", "农资一号", "note", "单价较高")));
+
+        CostAnalyticsVO result = service.getCostAnalyticsData(filter());
+
+        assertThat(result.getPurchaseTrend().getLabels()).containsExactly("2026-03-01", "2026-03-02");
+        assertThat(result.getPurchaseTrend().getAmount()).containsExactly(new BigDecimal("1000"), new BigDecimal("300"));
+        assertThat(result.getPurchaseTrend().getOrderCount()).containsExactly(2, 1);
+        assertThat(result.getMaterialCostTopN()).hasSize(2);
+        assertThat(result.getMaterialCostTopN().get(0).getName()).isEqualTo("复合肥料");
+        assertThat(result.getCategoryCostShare()).hasSize(2);
+        assertThat(result.getCategoryCostShare().get(0).getPercent()).isEqualByComparingTo("80.0");
+        assertThat(result.getCategoryCostShare().get(1).getPercent()).isEqualByComparingTo("20.0");
+        assertThat(result.getAbnormalCostItems()).hasSize(1);
+        assertThat(result.getAbnormalCostItems().get(0).getSupplierName()).isEqualTo("农资一号");
     }
 
     private ReportAnalyticsFilterDTO filter() {

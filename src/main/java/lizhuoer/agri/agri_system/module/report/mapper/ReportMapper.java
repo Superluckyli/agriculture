@@ -381,4 +381,244 @@ public interface ReportMapper {
                                                 @Param("farmlandId") Long farmlandId,
                                                 @Param("varietyId") Long varietyId,
                                                 @Param("assigneeId") Long assigneeId);
+
+    @Select("""
+            <script>
+            SELECT
+              b.variety_id AS varietyId,
+              COALESCE(b.crop_variety, v.crop_name, CONCAT('品种', b.variety_id)) AS cropVariety,
+              COUNT(*) AS batchCount
+            FROM agri_crop_batch b
+            LEFT JOIN base_crop_variety v ON v.variety_id = b.variety_id
+            WHERE b.status != 'archived'
+              <if test="farmlandId != null">
+                AND b.farmland_id = #{farmlandId}
+              </if>
+              <if test="varietyId != null">
+                AND b.variety_id = #{varietyId}
+              </if>
+            GROUP BY b.variety_id, COALESCE(b.crop_variety, v.crop_name, CONCAT('品种', b.variety_id))
+            ORDER BY batchCount DESC, cropVariety ASC
+            </script>
+            """)
+    List<Map<String, Object>> listAnalyticsCropDistribution(@Param("farmlandId") Long farmlandId,
+                                                            @Param("varietyId") Long varietyId);
+
+    @Select("""
+            <script>
+            SELECT
+              b.id AS batchId,
+              b.batch_no AS batchNo,
+              COALESCE(b.crop_variety, v.crop_name, CONCAT('品种', b.variety_id)) AS cropVariety,
+              COALESCE(b.target_output, 0) AS targetOutput,
+              COALESCE(b.actual_output, 0) AS actualOutput
+            FROM agri_crop_batch b
+            LEFT JOIN base_crop_variety v ON v.variety_id = b.variety_id
+            WHERE b.status != 'archived'
+              <if test="farmlandId != null">
+                AND b.farmland_id = #{farmlandId}
+              </if>
+              <if test="varietyId != null">
+                AND b.variety_id = #{varietyId}
+              </if>
+            ORDER BY b.created_at DESC, b.id DESC
+            LIMIT 20
+            </script>
+            """)
+    List<Map<String, Object>> listAnalyticsOutputComparison(@Param("farmlandId") Long farmlandId,
+                                                            @Param("varietyId") Long varietyId);
+
+    @Select("""
+            <script>
+            SELECT
+              DATE_FORMAT(b.estimated_harvest_date, #{bucketFormat}) AS label,
+              COUNT(*) AS batchCount,
+              COALESCE(SUM(COALESCE(b.target_output, 0)), 0) AS estimatedOutput
+            FROM agri_crop_batch b
+            WHERE b.estimated_harvest_date IS NOT NULL
+              <if test="farmlandId != null">
+                AND b.farmland_id = #{farmlandId}
+              </if>
+              <if test="varietyId != null">
+                AND b.variety_id = #{varietyId}
+              </if>
+            GROUP BY DATE_FORMAT(b.estimated_harvest_date, #{bucketFormat})
+            ORDER BY label ASC
+            </script>
+            """)
+    List<Map<String, Object>> countAnalyticsHarvestTrend(@Param("bucketFormat") String bucketFormat,
+                                                         @Param("farmlandId") Long farmlandId,
+                                                         @Param("varietyId") Long varietyId);
+
+    @Select("""
+            <script>
+            SELECT
+              b.id AS batchId,
+              b.batch_no AS batchNo,
+              COALESCE(b.crop_variety, v.crop_name, CONCAT('品种', b.variety_id)) AS cropVariety,
+              f.name AS farmlandName,
+              COALESCE(b.target_output, 0) AS targetOutput,
+              COALESCE(b.actual_output, 0) AS actualOutput,
+              DATE_FORMAT(b.estimated_harvest_date, '%Y-%m-%d') AS estimatedHarvestDate,
+              b.stage AS stage
+            FROM agri_crop_batch b
+            LEFT JOIN base_crop_variety v ON v.variety_id = b.variety_id
+            LEFT JOIN agri_farmland f ON f.id = b.farmland_id
+            WHERE b.status IN ('in_progress', 'not_started', 'paused', 'harvested', 'abandoned')
+              AND b.target_output IS NOT NULL
+              AND b.target_output > 0
+              <if test="farmlandId != null">
+                AND b.farmland_id = #{farmlandId}
+              </if>
+              <if test="varietyId != null">
+                AND b.variety_id = #{varietyId}
+              </if>
+            ORDER BY
+              CASE
+                WHEN COALESCE(b.actual_output, 0) = 0 THEN 0
+                ELSE COALESCE(b.actual_output, 0) / b.target_output
+              END ASC,
+              b.estimated_harvest_date ASC,
+              b.id DESC
+            LIMIT 20
+            </script>
+            """)
+    List<Map<String, Object>> listAnalyticsRiskBatches(@Param("farmlandId") Long farmlandId,
+                                                       @Param("varietyId") Long varietyId);
+
+    @Select("""
+            <script>
+            <choose>
+              <when test="materialCategory != null and materialCategory != ''">
+                SELECT
+                  DATE_FORMAT(po.created_at, #{bucketFormat}) AS label,
+                  COALESCE(SUM(COALESCE(poi.line_amount, 0)), 0) AS amount,
+                  COUNT(DISTINCT po.id) AS orderCount
+                FROM purchase_order po
+                JOIN purchase_order_item poi ON poi.purchase_order_id = po.id
+                JOIN material_info mi ON mi.material_id = poi.material_id
+                WHERE po.status != 'cancelled'
+                  AND po.created_at <![CDATA[>=]]> #{startAt}
+                  AND po.created_at <![CDATA[<]]> #{endAt}
+                  AND mi.category = #{materialCategory}
+                  <if test="supplierId != null">
+                    AND po.supplier_id = #{supplierId}
+                  </if>
+                GROUP BY DATE_FORMAT(po.created_at, #{bucketFormat})
+                ORDER BY label ASC
+              </when>
+              <otherwise>
+                SELECT
+                  DATE_FORMAT(po.created_at, #{bucketFormat}) AS label,
+                  COALESCE(SUM(COALESCE(po.total_amount, 0)), 0) AS amount,
+                  COUNT(DISTINCT po.id) AS orderCount
+                FROM purchase_order po
+                WHERE po.status != 'cancelled'
+                  AND po.created_at <![CDATA[>=]]> #{startAt}
+                  AND po.created_at <![CDATA[<]]> #{endAt}
+                  <if test="supplierId != null">
+                    AND po.supplier_id = #{supplierId}
+                  </if>
+                GROUP BY DATE_FORMAT(po.created_at, #{bucketFormat})
+                ORDER BY label ASC
+              </otherwise>
+            </choose>
+            </script>
+            """)
+    List<Map<String, Object>> sumAnalyticsPurchaseTrend(@Param("startAt") LocalDateTime startAt,
+                                                        @Param("endAt") LocalDateTime endAt,
+                                                        @Param("bucketFormat") String bucketFormat,
+                                                        @Param("materialCategory") String materialCategory,
+                                                        @Param("supplierId") Long supplierId);
+
+    @Select("""
+            <script>
+            SELECT
+              mi.material_id AS materialId,
+              mi.name AS name,
+              mi.category AS category,
+              COALESCE(SUM(msl.qty), 0) AS consumedQty,
+              COALESCE(SUM(msl.qty * COALESCE(mi.unit_price, 0)), 0) AS cost
+            FROM material_stock_log msl
+            JOIN material_info mi ON mi.material_id = msl.material_id
+            WHERE msl.change_type = 'OUT'
+              AND msl.created_at <![CDATA[>=]]> #{startAt}
+              AND msl.created_at <![CDATA[<]]> #{endAt}
+              <if test="materialCategory != null and materialCategory != ''">
+                AND mi.category = #{materialCategory}
+              </if>
+              <if test="supplierId != null">
+                AND mi.supplier_id = #{supplierId}
+              </if>
+            GROUP BY mi.material_id, mi.name, mi.category
+            ORDER BY cost DESC, consumedQty DESC, name ASC
+            LIMIT 10
+            </script>
+            """)
+    List<Map<String, Object>> sumAnalyticsMaterialCostTopN(@Param("startAt") LocalDateTime startAt,
+                                                           @Param("endAt") LocalDateTime endAt,
+                                                           @Param("materialCategory") String materialCategory,
+                                                           @Param("supplierId") Long supplierId);
+
+    @Select("""
+            <script>
+            SELECT
+              COALESCE(mi.category, '未分类') AS category,
+              COALESCE(SUM(msl.qty * COALESCE(mi.unit_price, 0)), 0) AS cost
+            FROM material_stock_log msl
+            JOIN material_info mi ON mi.material_id = msl.material_id
+            WHERE msl.change_type = 'OUT'
+              AND msl.created_at <![CDATA[>=]]> #{startAt}
+              AND msl.created_at <![CDATA[<]]> #{endAt}
+              <if test="materialCategory != null and materialCategory != ''">
+                AND mi.category = #{materialCategory}
+              </if>
+              <if test="supplierId != null">
+                AND mi.supplier_id = #{supplierId}
+              </if>
+            GROUP BY COALESCE(mi.category, '未分类')
+            ORDER BY cost DESC, category ASC
+            </script>
+            """)
+    List<Map<String, Object>> sumAnalyticsCategoryCostShare(@Param("startAt") LocalDateTime startAt,
+                                                            @Param("endAt") LocalDateTime endAt,
+                                                            @Param("materialCategory") String materialCategory,
+                                                            @Param("supplierId") Long supplierId);
+
+    @Select("""
+            <script>
+            SELECT
+              mi.material_id AS materialId,
+              mi.name AS materialName,
+              mi.category AS category,
+              COALESCE(SUM(msl.qty * COALESCE(mi.unit_price, 0)), 0) AS cost,
+              COALESCE(SUM(msl.qty), 0) AS consumedQty,
+              s.name AS supplierName,
+              CASE
+                WHEN mi.safe_threshold IS NOT NULL
+                  AND mi.current_stock &lt;= mi.safe_threshold
+                THEN '库存低于安全阈值'
+                ELSE '成本支出偏高'
+              END AS note
+            FROM material_stock_log msl
+            JOIN material_info mi ON mi.material_id = msl.material_id
+            LEFT JOIN supplier_info s ON s.id = mi.supplier_id
+            WHERE msl.change_type = 'OUT'
+              AND msl.created_at <![CDATA[>=]]> #{startAt}
+              AND msl.created_at <![CDATA[<]]> #{endAt}
+              <if test="materialCategory != null and materialCategory != ''">
+                AND mi.category = #{materialCategory}
+              </if>
+              <if test="supplierId != null">
+                AND mi.supplier_id = #{supplierId}
+              </if>
+            GROUP BY mi.material_id, mi.name, mi.category, s.name, mi.safe_threshold, mi.current_stock
+            ORDER BY cost DESC, consumedQty DESC
+            LIMIT 20
+            </script>
+            """)
+    List<Map<String, Object>> listAnalyticsAbnormalCostItems(@Param("startAt") LocalDateTime startAt,
+                                                             @Param("endAt") LocalDateTime endAt,
+                                                             @Param("materialCategory") String materialCategory,
+                                                             @Param("supplierId") Long supplierId);
 }

@@ -227,35 +227,94 @@ public class ReportServiceImpl implements IReportService {
 
     @Override
     public ProductionAnalyticsVO getProductionAnalyticsData(ReportAnalyticsFilterDTO filter) {
+        ReportAnalyticsFilterDTO normalizedFilter = normalizeFilter(filter);
+        String bucketFormat = resolveBucketFormat(normalizedFilter.getGranularity());
+
+        List<Map<String, Object>> cropDistributionRows = reportMapper.listAnalyticsCropDistribution(
+                normalizedFilter.getFarmlandId(),
+                normalizedFilter.getVarietyId());
+        List<Map<String, Object>> outputComparisonRows = reportMapper.listAnalyticsOutputComparison(
+                normalizedFilter.getFarmlandId(),
+                normalizedFilter.getVarietyId());
+        List<Map<String, Object>> harvestTrendRows = reportMapper.countAnalyticsHarvestTrend(
+                bucketFormat,
+                normalizedFilter.getFarmlandId(),
+                normalizedFilter.getVarietyId());
+        List<Map<String, Object>> riskBatchRows = reportMapper.listAnalyticsRiskBatches(
+                normalizedFilter.getFarmlandId(),
+                normalizedFilter.getVarietyId());
+
         ProductionAnalyticsVO vo = new ProductionAnalyticsVO();
-        vo.setFilterContext(filter);
-        vo.setCropDistribution(Collections.emptyList());
-        vo.setOutputComparison(Collections.emptyList());
+        vo.setFilterContext(normalizedFilter);
+        vo.setCropDistribution(buildCropDistribution(cropDistributionRows));
+        vo.setOutputComparison(buildOutputComparison(outputComparisonRows));
 
         ProductionAnalyticsVO.HarvestTrendVO harvestTrend = new ProductionAnalyticsVO.HarvestTrendVO();
-        harvestTrend.setLabels(Collections.emptyList());
-        harvestTrend.setBatchCount(Collections.emptyList());
-        harvestTrend.setEstimatedOutput(Collections.emptyList());
+        List<String> labels = harvestTrendRows == null ? Collections.emptyList() : harvestTrendRows.stream()
+                .map(row -> Objects.toString(row.get("label"), ""))
+                .filter(label -> !label.isBlank())
+                .collect(Collectors.toList());
+        harvestTrend.setLabels(labels);
+        harvestTrend.setBatchCount(harvestTrendRows == null ? Collections.emptyList() : harvestTrendRows.stream()
+                .map(row -> getInt(row, "batchCount"))
+                .collect(Collectors.toList()));
+        harvestTrend.setEstimatedOutput(harvestTrendRows == null ? Collections.emptyList() : harvestTrendRows.stream()
+                .map(row -> getBigDecimal(row, "estimatedOutput"))
+                .collect(Collectors.toList()));
         vo.setHarvestTrend(harvestTrend);
 
-        vo.setRiskBatches(Collections.emptyList());
+        vo.setRiskBatches(buildRiskBatches(riskBatchRows));
         return vo;
     }
 
     @Override
     public CostAnalyticsVO getCostAnalyticsData(ReportAnalyticsFilterDTO filter) {
+        ReportAnalyticsFilterDTO normalizedFilter = normalizeFilter(filter);
+        LocalDateTime startAt = toStartAt(normalizedFilter);
+        LocalDateTime endAt = toEndAtExclusive(normalizedFilter);
+        String bucketFormat = resolveBucketFormat(normalizedFilter.getGranularity());
+
+        List<Map<String, Object>> purchaseTrendRows = reportMapper.sumAnalyticsPurchaseTrend(
+                startAt,
+                endAt,
+                bucketFormat,
+                normalizedFilter.getMaterialCategory(),
+                normalizedFilter.getSupplierId());
+        List<Map<String, Object>> materialCostRows = reportMapper.sumAnalyticsMaterialCostTopN(
+                startAt,
+                endAt,
+                normalizedFilter.getMaterialCategory(),
+                normalizedFilter.getSupplierId());
+        List<Map<String, Object>> categoryCostRows = reportMapper.sumAnalyticsCategoryCostShare(
+                startAt,
+                endAt,
+                normalizedFilter.getMaterialCategory(),
+                normalizedFilter.getSupplierId());
+        List<Map<String, Object>> abnormalCostRows = reportMapper.listAnalyticsAbnormalCostItems(
+                startAt,
+                endAt,
+                normalizedFilter.getMaterialCategory(),
+                normalizedFilter.getSupplierId());
+
         CostAnalyticsVO vo = new CostAnalyticsVO();
-        vo.setFilterContext(filter);
+        vo.setFilterContext(normalizedFilter);
 
         CostAnalyticsVO.PurchaseTrendVO purchaseTrend = new CostAnalyticsVO.PurchaseTrendVO();
-        purchaseTrend.setLabels(Collections.emptyList());
-        purchaseTrend.setAmount(Collections.emptyList());
-        purchaseTrend.setOrderCount(Collections.emptyList());
+        purchaseTrend.setLabels(purchaseTrendRows == null ? Collections.emptyList() : purchaseTrendRows.stream()
+                .map(row -> Objects.toString(row.get("label"), ""))
+                .filter(label -> !label.isBlank())
+                .collect(Collectors.toList()));
+        purchaseTrend.setAmount(purchaseTrendRows == null ? Collections.emptyList() : purchaseTrendRows.stream()
+                .map(row -> getBigDecimal(row, "amount"))
+                .collect(Collectors.toList()));
+        purchaseTrend.setOrderCount(purchaseTrendRows == null ? Collections.emptyList() : purchaseTrendRows.stream()
+                .map(row -> getInt(row, "orderCount"))
+                .collect(Collectors.toList()));
         vo.setPurchaseTrend(purchaseTrend);
 
-        vo.setMaterialCostTopN(Collections.emptyList());
-        vo.setCategoryCostShare(Collections.emptyList());
-        vo.setAbnormalCostItems(Collections.emptyList());
+        vo.setMaterialCostTopN(buildMaterialCostTopN(materialCostRows));
+        vo.setCategoryCostShare(buildCategoryCostShare(categoryCostRows));
+        vo.setAbnormalCostItems(buildAbnormalCostItems(abnormalCostRows));
         return vo;
     }
 
@@ -532,6 +591,123 @@ public class ReportServiceImpl implements IReportService {
             item.setDeadlineAt(Objects.toString(row.get("deadlineAt"), null));
             item.setRiskLevel(Objects.toString(row.get("riskLevel"), ""));
             item.setOverdueDays(getInt(row, "overdueDays"));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    private List<ProductionAnalyticsVO.CropDistributionItemVO> buildCropDistribution(List<Map<String, Object>> rows) {
+        if (rows == null) {
+            return Collections.emptyList();
+        }
+        return rows.stream().map(row -> {
+            ProductionAnalyticsVO.CropDistributionItemVO item = new ProductionAnalyticsVO.CropDistributionItemVO();
+            Object varietyId = row.get("varietyId");
+            if (varietyId instanceof Number) {
+                item.setVarietyId(((Number) varietyId).longValue());
+            }
+            item.setCropVariety(Objects.toString(row.get("cropVariety"), ""));
+            item.setBatchCount(getInt(row, "batchCount"));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    private List<ProductionAnalyticsVO.OutputComparisonItemVO> buildOutputComparison(List<Map<String, Object>> rows) {
+        if (rows == null) {
+            return Collections.emptyList();
+        }
+        return rows.stream().map(row -> {
+            ProductionAnalyticsVO.OutputComparisonItemVO item = new ProductionAnalyticsVO.OutputComparisonItemVO();
+            Object batchId = row.get("batchId");
+            if (batchId instanceof Number) {
+                item.setBatchId(((Number) batchId).longValue());
+            }
+            item.setBatchNo(Objects.toString(row.get("batchNo"), ""));
+            item.setCropVariety(Objects.toString(row.get("cropVariety"), ""));
+            BigDecimal targetOutput = getBigDecimal(row, "targetOutput");
+            BigDecimal actualOutput = getBigDecimal(row, "actualOutput");
+            item.setTargetOutput(targetOutput);
+            item.setActualOutput(actualOutput);
+            item.setAchievementRate(toPercent(actualOutput, targetOutput));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    private List<ProductionAnalyticsVO.RiskBatchItemVO> buildRiskBatches(List<Map<String, Object>> rows) {
+        if (rows == null) {
+            return Collections.emptyList();
+        }
+        return rows.stream().map(row -> {
+            ProductionAnalyticsVO.RiskBatchItemVO item = new ProductionAnalyticsVO.RiskBatchItemVO();
+            Object batchId = row.get("batchId");
+            if (batchId instanceof Number) {
+                item.setBatchId(((Number) batchId).longValue());
+            }
+            item.setBatchNo(Objects.toString(row.get("batchNo"), ""));
+            item.setCropVariety(Objects.toString(row.get("cropVariety"), ""));
+            item.setFarmlandName(Objects.toString(row.get("farmlandName"), ""));
+            BigDecimal targetOutput = getBigDecimal(row, "targetOutput");
+            BigDecimal actualOutput = getBigDecimal(row, "actualOutput");
+            item.setTargetOutput(targetOutput);
+            item.setActualOutput(actualOutput);
+            item.setAchievementRate(toPercent(actualOutput, targetOutput));
+            item.setEstimatedHarvestDate(Objects.toString(row.get("estimatedHarvestDate"), null));
+            item.setStage(Objects.toString(row.get("stage"), ""));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    private List<CostAnalyticsVO.MaterialCostTopItemVO> buildMaterialCostTopN(List<Map<String, Object>> rows) {
+        if (rows == null) {
+            return Collections.emptyList();
+        }
+        return rows.stream().map(row -> {
+            CostAnalyticsVO.MaterialCostTopItemVO item = new CostAnalyticsVO.MaterialCostTopItemVO();
+            Object materialId = row.get("materialId");
+            if (materialId instanceof Number) {
+                item.setMaterialId(((Number) materialId).longValue());
+            }
+            item.setName(Objects.toString(row.get("name"), ""));
+            item.setCategory(Objects.toString(row.get("category"), ""));
+            item.setConsumedQty(getBigDecimal(row, "consumedQty"));
+            item.setCost(getBigDecimal(row, "cost"));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    private List<CostAnalyticsVO.CategoryCostShareItemVO> buildCategoryCostShare(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        BigDecimal totalCost = rows.stream()
+                .map(row -> getBigDecimal(row, "cost"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return rows.stream().map(row -> {
+            CostAnalyticsVO.CategoryCostShareItemVO item = new CostAnalyticsVO.CategoryCostShareItemVO();
+            BigDecimal cost = getBigDecimal(row, "cost");
+            item.setCategory(Objects.toString(row.get("category"), ""));
+            item.setCost(cost);
+            item.setPercent(toPercent(cost, totalCost));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    private List<CostAnalyticsVO.AbnormalCostItemVO> buildAbnormalCostItems(List<Map<String, Object>> rows) {
+        if (rows == null) {
+            return Collections.emptyList();
+        }
+        return rows.stream().map(row -> {
+            CostAnalyticsVO.AbnormalCostItemVO item = new CostAnalyticsVO.AbnormalCostItemVO();
+            Object materialId = row.get("materialId");
+            if (materialId instanceof Number) {
+                item.setMaterialId(((Number) materialId).longValue());
+            }
+            item.setMaterialName(Objects.toString(row.get("materialName"), ""));
+            item.setCategory(Objects.toString(row.get("category"), ""));
+            item.setCost(getBigDecimal(row, "cost"));
+            item.setConsumedQty(getBigDecimal(row, "consumedQty"));
+            item.setSupplierName(Objects.toString(row.get("supplierName"), ""));
+            item.setNote(Objects.toString(row.get("note"), ""));
             return item;
         }).collect(Collectors.toList());
     }
