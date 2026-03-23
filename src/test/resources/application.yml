@@ -10,6 +10,7 @@ spring:
       mode: always
       schema-locations: classpath:schema.sql
       data-locations:
+        - file:src/test/resources/h2-functions.sql
         - classpath:data.sql
         - classpath:data-iot-v2.sql
       encoding: UTF-8
