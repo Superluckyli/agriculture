@@ -37,22 +37,30 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
                        Consumer<ReportAiStreamEventVO> eventConsumer,
                        Runnable completionCallback,
                        Consumer<Throwable> errorCallback) {
+        // 统一管理“正常完成 / 异常结束 / 中途竞争”三类终止路径，
+        // 避免 provider 回调和本地异常同时触发多个终止信号。
         StreamTermination termination = new StreamTermination(errorCallback);
         try {
+            // 1. 先把当前 tab 的结构化 analytics 数据取出来
             ReportAnalyticsContextBuilder.ReportAnalyticsContext context = contextBuilder.build(request);
+            // 2. 再基于结构化数据拼装 prompt，避免模型直接依赖图表配置
             String prompt = promptBuilder.build(context);
+            // 3. parser 只负责把 provider 文本切成 section 事件；
+            //    evidence 仍然由代码侧按 section 补发，保证证据可控且稳定。
             SectionEvidenceRelay relay = new SectionEvidenceRelay(context.currentTab(), context.analytics(), eventConsumer);
             ReportAiSectionStreamParser parser = new ReportAiSectionStreamParser(relay::accept);
 
             aiModelClient.stream(
                     prompt,
                     delta -> {
+                        // 只有在 OPEN 状态下才允许继续接收 provider 文本。
                         if (!termination.allowDelta()) {
                             return;
                         }
                         try {
                             parser.accept(delta);
                         } catch (Throwable throwable) {
+                            // 如果事件下游或 parser 本身报错，也统一走失败终止。
                             termination.fail(throwable);
                         }
                     },
@@ -71,6 +79,8 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             return;
         }
         try {
+            // 先把 parser 内部剩余缓冲区刷出来，再执行完成回调，
+            // 最后才显式发 done，保证 transport 在看到 done 之前不会被关闭。
             parser.finish();
             completionCallback.run();
             parser.emitDone();
@@ -94,6 +104,7 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
 
         private void accept(ReportAiStreamEventVO event) {
             if ("section-start".equals(event.getType())) {
+                // 新 section 开始前，先把上一段的证据补出去。
                 emitEvidenceIfReady();
                 activeSection = event.getSection();
                 downstream.accept(event);
@@ -113,6 +124,7 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             if (activeSection == null) {
                 return;
             }
+            // evidence 永远来自结构化 analytics，而不是模型自己“口述”出来的数字。
             ReportAiStreamEventVO evidenceEvent = new ReportAiStreamEventVO();
             evidenceEvent.setType("evidence");
             evidenceEvent.setSection(activeSection);
@@ -137,6 +149,8 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
         }
 
         private synchronized boolean beginCompletion() {
+            // 只有 OPEN -> COMPLETING 这一次转换允许成功，
+            // 后续重复完成或错误竞争都会被挡住。
             if (state != State.OPEN) {
                 return false;
             }

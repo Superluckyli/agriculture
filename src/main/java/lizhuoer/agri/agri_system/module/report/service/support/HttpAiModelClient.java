@@ -93,6 +93,7 @@ public class HttpAiModelClient implements AiModelClient {
             return;
         }
         try {
+            // 这里走 OpenAI-compatible SSE 协议：先建请求，再按行读取 data: 事件。
             HttpRequest request = buildRequest(prompt);
             HttpResponse<InputStream> response = send(request);
             try (InputStream responseBody = response.body()) {
@@ -102,12 +103,14 @@ public class HttpAiModelClient implements AiModelClient {
                 }
                 boolean seenDone = consumeStream(responseBody, deltaConsumer);
                 if (!seenDone) {
+                    // 没看到 [DONE] 不能算成功，避免把截断流误判成完整响应。
                     errorCallback.accept(new IllegalStateException("AI provider stream ended before [DONE] marker"));
                     return;
                 }
                 completionCallback.run();
             }
         } catch (InterruptedException exception) {
+            // 保留线程中断标记，方便上层做取消/关闭处理。
             Thread.currentThread().interrupt();
             errorCallback.accept(exception);
         } catch (IOException | RuntimeException exception) {
@@ -138,6 +141,7 @@ public class HttpAiModelClient implements AiModelClient {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.startsWith("data:")) {
+                    // 兼容 event:/id:/注释行，只消费真正的数据行。
                     continue;
                 }
                 String payload = line.substring(5).trim();

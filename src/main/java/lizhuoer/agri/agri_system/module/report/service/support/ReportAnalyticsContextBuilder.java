@@ -31,12 +31,15 @@ public class ReportAnalyticsContextBuilder {
 
     public ReportAnalyticsContext build(ReportAiSummaryRequestDTO request) {
         ReportAnalyticsFilterDTO requestedFilters = request.getFilters();
+        // 这里复用现有报表 analytics 结果，而不是重复写一套 SQL。
         Object analytics = switch (request.getCurrentTab()) {
             case "task" -> reportService.getTaskAnalyticsData(requestedFilters);
             case "production" -> reportService.getProductionAnalyticsData(requestedFilters);
             case "cost" -> reportService.getCostAnalyticsData(requestedFilters);
             default -> throw new IllegalArgumentException("Unsupported currentTab");
         };
+        // prompt 要展示“真实生效”的筛选窗口，因此优先回收 service 返回的 filterContext，
+        // 没有的话再按默认口径做同样的归一化。
         ReportAnalyticsFilterDTO effectiveFilters = resolveEffectiveFilters(request.getCurrentTab(), requestedFilters, analytics);
         return new ReportAnalyticsContext(request.getCurrentTab(), effectiveFilters, analytics, isDataSufficient(request.getCurrentTab(), analytics));
     }
@@ -56,6 +59,7 @@ public class ReportAnalyticsContextBuilder {
     private ReportAnalyticsFilterDTO normalizeFilters(ReportAnalyticsFilterDTO filter) {
         ReportAnalyticsFilterDTO normalized = new ReportAnalyticsFilterDTO();
         LocalDate today = LocalDate.now(clock);
+        // 与前端默认口径保持一致：最近 30 天，默认粒度 day。
         normalized.setStartDate(filter != null && filter.getStartDate() != null ? filter.getStartDate() : today.minusDays(29));
         normalized.setEndDate(filter != null && filter.getEndDate() != null ? filter.getEndDate() : today);
         normalized.setGranularity(filter != null && filter.getGranularity() != null && !filter.getGranularity().isBlank()
@@ -71,6 +75,8 @@ public class ReportAnalyticsContextBuilder {
     }
 
     private boolean isDataSufficient(String currentTab, Object analytics) {
+        // dataSufficient 只表达“是否足以支撑一个保守总结”，
+        // 不代表可以输出更强的业务建议。
         return switch (currentTab) {
             case "task" -> isTaskDataSufficient((TaskAnalyticsVO) analytics);
             case "production" -> isProductionDataSufficient((ProductionAnalyticsVO) analytics);

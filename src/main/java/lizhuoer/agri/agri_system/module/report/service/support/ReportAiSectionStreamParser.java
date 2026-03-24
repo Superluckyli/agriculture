@@ -22,11 +22,15 @@ public class ReportAiSectionStreamParser {
         if (delta == null || delta.isEmpty()) {
             return;
         }
+        // provider 文本是增量到达的，可能把一个 marker 拆成多块，
+        // 所以先放入 buffer，再统一 drain。
         buffer.append(delta);
         drain(false);
     }
 
     public void finish() {
+        // 结束时只负责把剩余缓冲刷出来，不直接发 done。
+        // done 由 service 在真正完成回调成功后再发，保证顺序正确。
         drain(true);
         buffer.setLength(0);
     }
@@ -68,6 +72,7 @@ public class ReportAiSectionStreamParser {
                 event.setSection(section);
                 eventConsumer.accept(event);
             } else {
+                // 遇到未知 marker 时主动清空 activeSection，避免把后续文本误路由到旧 section。
                 activeSection = null;
             }
         }

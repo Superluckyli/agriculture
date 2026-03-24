@@ -13,6 +13,8 @@ public class ReportAiPromptBuilder {
 
     public String build(ReportAnalyticsContextBuilder.ReportAnalyticsContext context) {
         StringBuilder prompt = new StringBuilder();
+        // Prompt 只喂“结构化 analytics 数据 + 明确 guardrail”，
+        // 不喂前端图表 option，防止模型围绕展示层编故事。
         prompt.append("你是农业经营报表分析助手。仅可基于下方 analytics 数据生成总结，不要编造、不要引用图表描述。\n")
                 .append("当前页签: ").append(context.currentTab()).append('\n')
                 .append("筛选窗口: ").append(formatDate(context.filters() != null ? context.filters().getStartDate() : null))
@@ -28,6 +30,7 @@ public class ReportAiPromptBuilder {
         if (context.dataSufficient()) {
             prompt.append("当前数据足够支撑总结，请给出简洁事实判断。\n");
         } else {
+            // 数据不足时强制模型降级语气，避免输出过强结论。
             prompt.append("当前分析数据不足，请在结论中明确说明“数据不足”，仅做保守描述，不要延伸业务动作。\n");
         }
 
