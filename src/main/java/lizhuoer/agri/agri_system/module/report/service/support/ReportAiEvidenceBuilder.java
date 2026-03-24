@@ -4,11 +4,13 @@ import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAiEvidenceItemVO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
+@Component
 public class ReportAiEvidenceBuilder {
 
     public List<ReportAiEvidenceItemVO> build(String currentTab, String section, Object analytics) {
