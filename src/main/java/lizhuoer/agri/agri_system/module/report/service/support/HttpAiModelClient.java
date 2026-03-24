@@ -95,16 +95,18 @@ public class HttpAiModelClient implements AiModelClient {
         try {
             HttpRequest request = buildRequest(prompt);
             HttpResponse<InputStream> response = send(request);
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                errorCallback.accept(new IllegalStateException("AI provider returned HTTP " + response.statusCode()));
-                return;
+            try (InputStream responseBody = response.body()) {
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    errorCallback.accept(new IllegalStateException("AI provider returned HTTP " + response.statusCode()));
+                    return;
+                }
+                boolean seenDone = consumeStream(responseBody, deltaConsumer);
+                if (!seenDone) {
+                    errorCallback.accept(new IllegalStateException("AI provider stream ended before [DONE] marker"));
+                    return;
+                }
+                completionCallback.run();
             }
-            boolean seenDone = consumeStream(response.body(), deltaConsumer);
-            if (!seenDone) {
-                errorCallback.accept(new IllegalStateException("AI provider stream ended before [DONE] marker"));
-                return;
-            }
-            completionCallback.run();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             errorCallback.accept(exception);
@@ -127,7 +129,7 @@ public class HttpAiModelClient implements AiModelClient {
                 .build();
     }
 
-    private HttpResponse<InputStream> send(HttpRequest request) throws IOException, InterruptedException {
+    protected HttpResponse<InputStream> send(HttpRequest request) throws IOException, InterruptedException {
         return httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
     }
 

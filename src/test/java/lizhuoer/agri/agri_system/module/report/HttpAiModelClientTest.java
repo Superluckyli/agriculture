@@ -88,6 +88,25 @@ class HttpAiModelClientTest {
         }
     }
 
+
+    @Test
+    void interruptedSendRestoresThreadInterruptFlagAndReportsError() {
+        InterruptingHttpAiModelClient client = new InterruptingHttpAiModelClient();
+        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+        assertThat(Thread.currentThread().isInterrupted()).isFalse();
+        try {
+            client.stream("prompt", delta -> {}, () -> completed.set(true), errorRef::set);
+
+            assertThat(completed).isFalse();
+            assertThat(errorRef.get()).isInstanceOf(InterruptedException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
     @Test
     void disabledProviderFailsFastBeforeNetworkCall() throws Exception {
         try (FakeAiServer server = FakeAiServer.start("""
@@ -120,6 +139,19 @@ class HttpAiModelClientTest {
 
     private HttpAiModelClient clientPointingTo(String baseUrl, boolean enabled) {
         return new HttpAiModelClient(enabled, baseUrl, "test-key", "gpt-test", "/v1/chat/completions", 5);
+    }
+
+
+    private static final class InterruptingHttpAiModelClient extends HttpAiModelClient {
+        private InterruptingHttpAiModelClient() {
+            super(true, "http://127.0.0.1:65535", "test-key", "gpt-test", "/v1/chat/completions", 5);
+        }
+
+        @Override
+        protected java.net.http.HttpResponse<java.io.InputStream> send(java.net.http.HttpRequest request)
+                throws java.io.IOException, InterruptedException {
+            throw new InterruptedException("interrupted for test");
+        }
     }
 
     private static final class FakeAiServer implements AutoCloseable {
