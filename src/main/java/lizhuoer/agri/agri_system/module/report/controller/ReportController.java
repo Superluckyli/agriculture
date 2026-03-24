@@ -74,8 +74,12 @@ public class ReportController {
             throw new IllegalStateException("AI summary streaming service is not configured");
         }
         SseEmitter emitter = new SseEmitter(60_000L);
-        reportAiSummaryService.stream(request, event -> sendEvent(emitter, event));
-        emitter.complete();
+        reportAiSummaryService.stream(
+                request,
+                event -> sendEvent(emitter, event),
+                emitter::complete,
+                emitter::completeWithError
+        );
         return emitter;
     }
 

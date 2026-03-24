@@ -105,6 +105,24 @@ class ReportAiSummaryControllerTest {
                 .andExpect(jsonPath("$.msg", containsString("filters")));
     }
 
+    @Test
+    void aiSummaryStreamFailsWhenServiceIsUnavailable() throws Exception {
+        ReportController controller = new ReportController();
+        ReflectionTestUtils.setField(controller, "reportService", new StubReportService());
+        ReflectionTestUtils.setField(controller, "reportAiSummaryServiceProvider", providerFor(null));
+        MockMvc missingServiceMockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        missingServiceMockMvc.perform(post("/report/analytics/ai-summary/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"currentTab":"task","filters":{"startDate":"2026-03-01","endDate":"2026-03-31"}}
+                        """))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.msg", containsString("系统异常")));
+    }
+
     private List<JsonNode> parseDataEvents(String body) {
         return body.lines()
                 .filter(line -> line.startsWith("data:"))
@@ -147,7 +165,10 @@ class ReportAiSummaryControllerTest {
 
     private static final class StubReportAiSummaryService implements IReportAiSummaryService {
         @Override
-        public void stream(ReportAiSummaryRequestDTO request, Consumer<ReportAiStreamEventVO> eventConsumer) {
+        public void stream(ReportAiSummaryRequestDTO request,
+                           Consumer<ReportAiStreamEventVO> eventConsumer,
+                           Runnable completionCallback,
+                           Consumer<Throwable> errorCallback) {
             ReportAiStreamEventVO sectionStart = new ReportAiStreamEventVO();
             sectionStart.setType("section-start");
             sectionStart.setSection(request.getCurrentTab());
@@ -157,6 +178,7 @@ class ReportAiSummaryControllerTest {
             done.setType("done");
             done.setSection(request.getCurrentTab());
             eventConsumer.accept(done);
+            completionCallback.run();
         }
     }
 
