@@ -18,6 +18,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ReportAiSectionStreamParserTest {
 
     @Test
+    void parserHandlesHardMarkerInSingleChunk() {
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        ReportAiSectionStreamParser parser = new ReportAiSectionStreamParser(events::add);
+
+        parser.accept("[SECTION:risk]存在产量偏低风险。");
+        parser.finish();
+
+        assertThat(events).extracting(ReportAiStreamEventVO::getType)
+                .containsExactly("section-start", "section-chunk", "done");
+        assertThat(events).extracting(ReportAiStreamEventVO::getSection)
+                .containsExactly("risk", "risk", null);
+        assertThat(events).extracting(ReportAiStreamEventVO::getSummary)
+                .containsExactly(null, "存在产量偏低风险。", null);
+    }
+
+    @Test
     void parserRoutesChunkTextToTheCurrentSectionAcrossSplitMarkers() {
         List<ReportAiStreamEventVO> events = new ArrayList<>();
         ReportAiSectionStreamParser parser = new ReportAiSectionStreamParser(events::add);
@@ -32,6 +48,22 @@ class ReportAiSectionStreamParserTest {
                 .containsExactly("conclusion", "conclusion", "reason", "reason", null);
         assertThat(events).extracting(ReportAiStreamEventVO::getSummary)
                 .containsExactly(null, "任务整体表现稳定。", null, "主要因为完成趋势回升。", null);
+    }
+
+    @Test
+    void parserStopsRoutingTextWhenUnsupportedMarkerAppearsAfterValidSection() {
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        ReportAiSectionStreamParser parser = new ReportAiSectionStreamParser(events::add);
+
+        parser.accept("[SECTION:conclusion]已完成总结。[SECTION:unknown]这段文本不应落到上一节。");
+        parser.finish();
+
+        assertThat(events).extracting(ReportAiStreamEventVO::getType)
+                .containsExactly("section-start", "section-chunk", "done");
+        assertThat(events).extracting(ReportAiStreamEventVO::getSection)
+                .containsExactly("conclusion", "conclusion", null);
+        assertThat(events).extracting(ReportAiStreamEventVO::getSummary)
+                .containsExactly(null, "已完成总结。", null);
     }
 
     @Test
@@ -84,6 +116,35 @@ class ReportAiSectionStreamParserTest {
                         tuple("异常物资", "生物肥"),
                         tuple("供应商", "绿源供应"),
                         tuple("异常成本", "1888.50")
+                );
+    }
+
+    @Test
+    void evidenceBuilderReturnsStableFallbackEvidenceForEmptyOrNullAnalytics() {
+        ReportAiEvidenceBuilder builder = new ReportAiEvidenceBuilder();
+
+        assertThat(builder.build("task", "conclusion", new TaskAnalyticsVO()))
+                .extracting(ReportAiEvidenceItemVO::getLabel, ReportAiEvidenceItemVO::getValue)
+                .containsExactly(
+                        tuple("已完成任务", "0"),
+                        tuple("逾期任务", "0"),
+                        tuple("异常任务", "-")
+                );
+
+        assertThat(builder.build("production", "risk", null))
+                .extracting(ReportAiEvidenceItemVO::getLabel, ReportAiEvidenceItemVO::getValue)
+                .containsExactly(
+                        tuple("风险批次", "-"),
+                        tuple("所属地块", "-"),
+                        tuple("达成率", "0%")
+                );
+
+        assertThat(builder.build("cost", "attention", new CostAnalyticsVO()))
+                .extracting(ReportAiEvidenceItemVO::getLabel, ReportAiEvidenceItemVO::getValue)
+                .containsExactly(
+                        tuple("异常物资", "-"),
+                        tuple("供应商", "-"),
+                        tuple("异常成本", "0")
                 );
     }
 

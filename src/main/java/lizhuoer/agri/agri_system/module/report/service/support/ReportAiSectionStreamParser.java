@@ -64,6 +64,8 @@ public class ReportAiSectionStreamParser {
                 event.setType("section-start");
                 event.setSection(section);
                 eventConsumer.accept(event);
+            } else {
+                activeSection = null;
             }
         }
     }

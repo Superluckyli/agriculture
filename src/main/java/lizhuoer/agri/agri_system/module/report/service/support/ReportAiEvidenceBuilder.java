@@ -12,21 +12,21 @@ import java.util.List;
 public class ReportAiEvidenceBuilder {
 
     public List<ReportAiEvidenceItemVO> build(String currentTab, String section, Object analytics) {
-        if ("task".equals(currentTab) && "conclusion".equals(section) && analytics instanceof TaskAnalyticsVO taskAnalytics) {
-            return buildTaskConclusion(taskAnalytics);
+        if ("task".equals(currentTab) && "conclusion".equals(section)) {
+            return buildTaskConclusion(analytics instanceof TaskAnalyticsVO taskAnalytics ? taskAnalytics : null);
         }
-        if ("production".equals(currentTab) && "risk".equals(section) && analytics instanceof ProductionAnalyticsVO productionAnalytics) {
-            return buildProductionRisk(productionAnalytics);
+        if ("production".equals(currentTab) && "risk".equals(section)) {
+            return buildProductionRisk(analytics instanceof ProductionAnalyticsVO productionAnalytics ? productionAnalytics : null);
         }
-        if ("cost".equals(currentTab) && "attention".equals(section) && analytics instanceof CostAnalyticsVO costAnalytics) {
-            return buildCostAttention(costAnalytics);
+        if ("cost".equals(currentTab) && "attention".equals(section)) {
+            return buildCostAttention(analytics instanceof CostAnalyticsVO costAnalytics ? costAnalytics : null);
         }
         return List.of();
     }
 
     private List<ReportAiEvidenceItemVO> buildTaskConclusion(TaskAnalyticsVO analytics) {
-        TaskAnalyticsVO.TrendVO trend = analytics.getTrend();
-        List<TaskAnalyticsVO.AbnormalTaskItemVO> abnormalTasks = analytics.getAbnormalTasks();
+        TaskAnalyticsVO.TrendVO trend = analytics != null ? analytics.getTrend() : null;
+        List<TaskAnalyticsVO.AbnormalTaskItemVO> abnormalTasks = analytics != null ? analytics.getAbnormalTasks() : null;
         return List.of(
                 item("已完成任务", Integer.toString(lastInt(trend != null ? trend.getCompleted() : null))),
                 item("逾期任务", Integer.toString(lastInt(trend != null ? trend.getOverdue() : null))),
@@ -35,7 +35,7 @@ public class ReportAiEvidenceBuilder {
     }
 
     private List<ReportAiEvidenceItemVO> buildProductionRisk(ProductionAnalyticsVO analytics) {
-        ProductionAnalyticsVO.RiskBatchItemVO riskBatch = firstRiskBatch(analytics.getRiskBatches());
+        ProductionAnalyticsVO.RiskBatchItemVO riskBatch = firstRiskBatch(analytics != null ? analytics.getRiskBatches() : null);
         return List.of(
                 item("风险批次", riskBatch != null ? defaultString(riskBatch.getBatchNo()) : "-"),
                 item("所属地块", riskBatch != null ? defaultString(riskBatch.getFarmlandName()) : "-"),
@@ -44,7 +44,7 @@ public class ReportAiEvidenceBuilder {
     }
 
     private List<ReportAiEvidenceItemVO> buildCostAttention(CostAnalyticsVO analytics) {
-        CostAnalyticsVO.AbnormalCostItemVO abnormalCost = firstAbnormalCost(analytics.getAbnormalCostItems());
+        CostAnalyticsVO.AbnormalCostItemVO abnormalCost = firstAbnormalCost(analytics != null ? analytics.getAbnormalCostItems() : null);
         return List.of(
                 item("异常物资", abnormalCost != null ? defaultString(abnormalCost.getMaterialName()) : "-"),
                 item("供应商", abnormalCost != null ? defaultString(abnormalCost.getSupplierName()) : "-"),
