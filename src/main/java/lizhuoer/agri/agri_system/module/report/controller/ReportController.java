@@ -6,11 +6,13 @@ import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.DashboardV2VO;
 import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAiSummaryRequestDTO;
+import lizhuoer.agri.agri_system.module.report.domain.ReportAiStreamEventVO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsOverviewVO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.service.IReportAiSummaryService;
 import lizhuoer.agri.agri_system.module.report.service.IReportService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,7 +26,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/report")
@@ -34,7 +35,7 @@ public class ReportController {
     private IReportService reportService;
 
     @Autowired
-    private IReportAiSummaryService reportAiSummaryService;
+    private ObjectProvider<IReportAiSummaryService> reportAiSummaryServiceProvider;
 
     @GetMapping("/dashboard")
     public R<Map<String, Object>> dashboard() {
@@ -68,19 +69,17 @@ public class ReportController {
 
     @PostMapping(value = "/analytics/ai-summary/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter aiSummaryStream(@Valid @RequestBody ReportAiSummaryRequestDTO request) {
+        IReportAiSummaryService reportAiSummaryService = reportAiSummaryServiceProvider.getIfAvailable();
+        if (reportAiSummaryService == null) {
+            throw new IllegalStateException("AI summary streaming service is not configured");
+        }
         SseEmitter emitter = new SseEmitter(60_000L);
-        CompletableFuture.runAsync(() -> {
-            try {
-                reportAiSummaryService.stream(request, event -> sendEvent(emitter, event));
-                emitter.complete();
-            } catch (Exception ex) {
-                emitter.completeWithError(ex);
-            }
-        });
+        reportAiSummaryService.stream(request, event -> sendEvent(emitter, event));
+        emitter.complete();
         return emitter;
     }
 
-    private void sendEvent(SseEmitter emitter, Object event) {
+    private void sendEvent(SseEmitter emitter, ReportAiStreamEventVO event) {
         try {
             emitter.send(SseEmitter.event().data(event));
         } catch (IOException e) {

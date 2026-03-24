@@ -1,5 +1,7 @@
 package lizhuoer.agri.agri_system.module.report;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lizhuoer.agri.agri_system.common.exception.GlobalExceptionHandler;
 import lizhuoer.agri.agri_system.common.security.LoginUser;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
@@ -8,6 +10,7 @@ import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.DashboardV2VO;
 import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAiStreamEventVO;
+import lizhuoer.agri.agri_system.module.report.domain.ReportAiSummaryRequestDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsOverviewVO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
@@ -16,31 +19,39 @@ import lizhuoer.agri.agri_system.module.report.service.IReportService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ReportAiSummaryControllerTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         ReportController controller = new ReportController();
         ReflectionTestUtils.setField(controller, "reportService", new StubReportService());
-        ReflectionTestUtils.setField(controller, "reportAiSummaryService", new StubReportAiSummaryService());
+        ReflectionTestUtils.setField(controller, "reportAiSummaryServiceProvider",
+                providerFor(new StubReportAiSummaryService()));
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -53,7 +64,7 @@ class ReportAiSummaryControllerTest {
     }
 
     @Test
-    void aiSummaryStreamEndpointStartsAsyncAndEmitsSectionEvents() throws Exception {
+    void aiSummaryStreamEndpointStartsAsyncAndEmitsTypedEvents() throws Exception {
         MvcResult mvcResult = mockMvc.perform(post("/report/analytics/ai-summary/stream")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -62,17 +73,81 @@ class ReportAiSummaryControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(mvcResult))
+        MvcResult response = mockMvc.perform(asyncDispatch(mvcResult))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
-                .andExpect(content().string(containsString("section-start")))
-                .andExpect(content().string(containsString("done")));
+                .andReturn();
+
+        List<JsonNode> events = parseDataEvents(response.getResponse().getContentAsString());
+        assertThat(events).hasSize(2);
+        assertThat(events.get(0).path("type").asText()).isEqualTo("section-start");
+        assertThat(events.get(0).path("section").asText()).isEqualTo("task");
+        assertThat(events.get(0).path("summary").isMissingNode()).isFalse();
+        assertThat(events.get(0).path("summary").isNull()).isTrue();
+        assertThat(events.get(0).path("evidence").isMissingNode()).isFalse();
+        assertThat(events.get(0).path("evidence").isNull()).isTrue();
+        assertThat(events.get(1).path("type").asText()).isEqualTo("done");
+        assertThat(events.get(1).path("section").asText()).isEqualTo("task");
+        assertThat(events.get(1).path("summary").isNull()).isTrue();
+        assertThat(events.get(1).path("evidence").isNull()).isTrue();
+    }
+
+    @Test
+    void aiSummaryStreamRejectsInvalidRequest() throws Exception {
+        mockMvc.perform(post("/report/analytics/ai-summary/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"currentTab":" ","filters":null}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").exists())
+                .andExpect(jsonPath("$.msg", containsString("currentTab")))
+                .andExpect(jsonPath("$.msg", containsString("filters")));
+    }
+
+    private List<JsonNode> parseDataEvents(String body) {
+        return body.lines()
+                .filter(line -> line.startsWith("data:"))
+                .map(line -> line.substring("data:".length()).trim())
+                .map(this::readJson)
+                .collect(Collectors.toList());
+    }
+
+    private JsonNode readJson(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (Exception e) {
+            throw new AssertionError("Failed to parse SSE payload: " + json, e);
+        }
+    }
+
+    private ObjectProvider<IReportAiSummaryService> providerFor(IReportAiSummaryService service) {
+        return new ObjectProvider<>() {
+            @Override
+            public IReportAiSummaryService getObject(Object... args) {
+                return service;
+            }
+
+            @Override
+            public IReportAiSummaryService getIfAvailable() {
+                return service;
+            }
+
+            @Override
+            public IReportAiSummaryService getIfUnique() {
+                return service;
+            }
+
+            @Override
+            public IReportAiSummaryService getObject() {
+                return service;
+            }
+        };
     }
 
     private static final class StubReportAiSummaryService implements IReportAiSummaryService {
         @Override
-        public void stream(lizhuoer.agri.agri_system.module.report.domain.ReportAiSummaryRequestDTO request,
-                           java.util.function.Consumer<ReportAiStreamEventVO> eventConsumer) {
+        public void stream(ReportAiSummaryRequestDTO request, Consumer<ReportAiStreamEventVO> eventConsumer) {
             ReportAiStreamEventVO sectionStart = new ReportAiStreamEventVO();
             sectionStart.setType("section-start");
             sectionStart.setSection(request.getCurrentTab());
