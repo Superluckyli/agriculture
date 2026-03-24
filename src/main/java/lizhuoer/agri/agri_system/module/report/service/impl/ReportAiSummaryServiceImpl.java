@@ -38,29 +38,37 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
                        Consumer<ReportAiStreamEventVO> eventConsumer,
                        Runnable completionCallback,
                        Consumer<Throwable> errorCallback) {
+        AtomicBoolean terminated = new AtomicBoolean(false);
         try {
             ReportAnalyticsContextBuilder.ReportAnalyticsContext context = contextBuilder.build(request);
             String prompt = promptBuilder.build(context);
             SectionEvidenceRelay relay = new SectionEvidenceRelay(context.currentTab(), context.analytics(), eventConsumer);
             ReportAiSectionStreamParser parser = new ReportAiSectionStreamParser(relay::accept);
-            AtomicBoolean terminated = new AtomicBoolean(false);
 
             aiModelClient.stream(
                     prompt,
                     parser::accept,
-                    () -> {
-                        if (terminated.compareAndSet(false, true)) {
-                            parser.finish();
-                            completionCallback.run();
-                        }
-                    },
-                    throwable -> {
-                        if (terminated.compareAndSet(false, true)) {
-                            errorCallback.accept(throwable);
-                        }
-                    }
+                    () -> completeOnce(terminated, parser, completionCallback),
+                    throwable -> failOnce(terminated, throwable, errorCallback)
             );
         } catch (Throwable throwable) {
+            failOnce(terminated, throwable, errorCallback);
+        }
+    }
+
+    private void completeOnce(AtomicBoolean terminated,
+                              ReportAiSectionStreamParser parser,
+                              Runnable completionCallback) {
+        if (terminated.compareAndSet(false, true)) {
+            parser.finish();
+            completionCallback.run();
+        }
+    }
+
+    private void failOnce(AtomicBoolean terminated,
+                          Throwable throwable,
+                          Consumer<Throwable> errorCallback) {
+        if (terminated.compareAndSet(false, true)) {
             errorCallback.accept(throwable);
         }
     }
@@ -70,7 +78,6 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
         private final Object analytics;
         private final Consumer<ReportAiStreamEventVO> downstream;
         private String activeSection;
-        private final StringBuilder sectionBuffer = new StringBuilder();
 
         private SectionEvidenceRelay(String currentTab, Object analytics, Consumer<ReportAiStreamEventVO> downstream) {
             this.currentTab = currentTab;
@@ -82,14 +89,10 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             if ("section-start".equals(event.getType())) {
                 emitEvidenceIfReady();
                 activeSection = event.getSection();
-                sectionBuffer.setLength(0);
                 downstream.accept(event);
                 return;
             }
             if ("section-chunk".equals(event.getType())) {
-                if (event.getSummary() != null) {
-                    sectionBuffer.append(event.getSummary());
-                }
                 downstream.accept(event);
                 return;
             }
@@ -109,7 +112,6 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             evidenceEvent.setEvidence(evidenceBuilder.build(currentTab, activeSection, analytics));
             downstream.accept(evidenceEvent);
             activeSection = null;
-            sectionBuffer.setLength(0);
         }
     }
 }

@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -185,6 +186,34 @@ class ReportAiSummaryServiceTest {
         assertThat(completed).isFalse();
         assertThat(errorRef.get()).isSameAs(providerFailure);
         assertThat(events).isEmpty();
+    }
+
+    @Test
+    void providerCompletionThenSynchronousThrowOnlyTerminatesOnce() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        RuntimeException thrown = new RuntimeException("after complete");
+        AtomicInteger completionCount = new AtomicInteger();
+        AtomicInteger errorCount = new AtomicInteger();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        doAnswer(invocation -> {
+            Runnable onComplete = invocation.getArgument(2);
+            onComplete.run();
+            throw thrown;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(
+                request("task"),
+                event -> {},
+                completionCount::incrementAndGet,
+                throwable -> {
+                    errorCount.incrementAndGet();
+                    errorRef.set(throwable);
+                }
+        );
+
+        assertThat(completionCount.get()).isEqualTo(1);
+        assertThat(errorCount.get()).isZero();
+        assertThat(errorRef.get()).isNull();
     }
 
     @Test
