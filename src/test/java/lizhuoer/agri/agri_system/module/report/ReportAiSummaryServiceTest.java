@@ -217,6 +217,106 @@ class ReportAiSummaryServiceTest {
     }
 
     @Test
+    void downstreamConsumerThrowDuringParserFinishRoutesErrorOnce() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        AtomicInteger completionCount = new AtomicInteger();
+        AtomicInteger errorCount = new AtomicInteger();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        List<String> eventTypes = new ArrayList<>();
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            Consumer<Throwable> onError = invocation.getArgument(3);
+            onDelta.accept("[SECTION:conclusion]收尾文本");
+            onComplete.run();
+            onDelta.accept("[SECTION:reason]late delta should be ignored");
+            onError.accept(new IllegalStateException("late error should be ignored"));
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(
+                request("task"),
+                event -> {
+                    eventTypes.add(event.getType());
+                    if ("evidence".equals(event.getType())) {
+                        throw new IllegalStateException("flush failure");
+                    }
+                },
+                completionCount::incrementAndGet,
+                throwable -> {
+                    errorCount.incrementAndGet();
+                    errorRef.set(throwable);
+                }
+        );
+
+        assertThat(completionCount.get()).isZero();
+        assertThat(errorCount.get()).isEqualTo(1);
+        assertThat(errorRef.get()).hasMessage("flush failure");
+        assertThat(eventTypes).containsExactly("section-start", "section-chunk", "evidence");
+    }
+
+    @Test
+    void lateDeltasAfterOnCompleteDoNotLeakPostTerminalEvents() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        AtomicInteger completionCount = new AtomicInteger();
+        AtomicInteger errorCount = new AtomicInteger();
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            onDelta.accept("[SECTION:conclusion]先完成。\n");
+            onComplete.run();
+            onDelta.accept("[SECTION:risk]不应再输出");
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(
+                request("task"),
+                events::add,
+                completionCount::incrementAndGet,
+                throwable -> errorCount.incrementAndGet()
+        );
+
+        assertThat(completionCount.get()).isEqualTo(1);
+        assertThat(errorCount.get()).isZero();
+        assertThat(events).extracting(ReportAiStreamEventVO::getType)
+                .containsExactly("section-start", "section-chunk", "evidence", "done");
+    }
+
+    @Test
+    void lateDeltasAfterOnErrorDoNotLeakPostTerminalEvents() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        AtomicInteger completionCount = new AtomicInteger();
+        AtomicInteger errorCount = new AtomicInteger();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Consumer<Throwable> onError = invocation.getArgument(3);
+            onDelta.accept("[SECTION:conclusion]未终止前文本");
+            onError.accept(new IllegalStateException("provider failed"));
+            onDelta.accept("[SECTION:risk]不应再输出");
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(
+                request("task"),
+                events::add,
+                completionCount::incrementAndGet,
+                throwable -> {
+                    errorCount.incrementAndGet();
+                    errorRef.set(throwable);
+                }
+        );
+
+        assertThat(completionCount.get()).isZero();
+        assertThat(errorCount.get()).isEqualTo(1);
+        assertThat(errorRef.get()).hasMessage("provider failed");
+        assertThat(events).extracting(ReportAiStreamEventVO::getType)
+                .containsExactly("section-start", "section-chunk");
+    }
+
+    @Test
     void providerSynchronousThrowTriggersErrorCallback() {
         when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
         IllegalArgumentException thrown = new IllegalArgumentException("boom");

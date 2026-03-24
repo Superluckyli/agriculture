@@ -11,7 +11,6 @@ import lizhuoer.agri.agri_system.module.report.service.support.ReportAnalyticsCo
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @Service
@@ -38,7 +37,7 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
                        Consumer<ReportAiStreamEventVO> eventConsumer,
                        Runnable completionCallback,
                        Consumer<Throwable> errorCallback) {
-        AtomicBoolean terminated = new AtomicBoolean(false);
+        StreamTermination termination = new StreamTermination(errorCallback);
         try {
             ReportAnalyticsContextBuilder.ReportAnalyticsContext context = contextBuilder.build(request);
             String prompt = promptBuilder.build(context);
@@ -47,29 +46,31 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
 
             aiModelClient.stream(
                     prompt,
-                    parser::accept,
-                    () -> completeOnce(terminated, parser, completionCallback),
-                    throwable -> failOnce(terminated, throwable, errorCallback)
+                    delta -> {
+                        if (termination.allowDelta()) {
+                            parser.accept(delta);
+                        }
+                    },
+                    () -> terminateCompletion(termination, parser, completionCallback),
+                    throwable -> termination.fail(throwable)
             );
         } catch (Throwable throwable) {
-            failOnce(terminated, throwable, errorCallback);
+            termination.fail(throwable);
         }
     }
 
-    private void completeOnce(AtomicBoolean terminated,
-                              ReportAiSectionStreamParser parser,
-                              Runnable completionCallback) {
-        if (terminated.compareAndSet(false, true)) {
+    private void terminateCompletion(StreamTermination termination,
+                                     ReportAiSectionStreamParser parser,
+                                     Runnable completionCallback) {
+        if (!termination.beginCompletion()) {
+            return;
+        }
+        try {
             parser.finish();
             completionCallback.run();
-        }
-    }
-
-    private void failOnce(AtomicBoolean terminated,
-                          Throwable throwable,
-                          Consumer<Throwable> errorCallback) {
-        if (terminated.compareAndSet(false, true)) {
-            errorCallback.accept(throwable);
+            termination.markCompleted();
+        } catch (Throwable throwable) {
+            termination.failAfterCompletionFailure(throwable);
         }
     }
 
@@ -112,6 +113,50 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             evidenceEvent.setEvidence(evidenceBuilder.build(currentTab, activeSection, analytics));
             downstream.accept(evidenceEvent);
             activeSection = null;
+        }
+    }
+
+    private static final class StreamTermination {
+        private enum State { OPEN, COMPLETING, TERMINATED }
+
+        private final Consumer<Throwable> errorCallback;
+        private State state = State.OPEN;
+
+        private StreamTermination(Consumer<Throwable> errorCallback) {
+            this.errorCallback = errorCallback;
+        }
+
+        private synchronized boolean allowDelta() {
+            return state == State.OPEN;
+        }
+
+        private synchronized boolean beginCompletion() {
+            if (state != State.OPEN) {
+                return false;
+            }
+            state = State.COMPLETING;
+            return true;
+        }
+
+        private synchronized void markCompleted() {
+            state = State.TERMINATED;
+        }
+
+        private void failAfterCompletionFailure(Throwable throwable) {
+            synchronized (this) {
+                state = State.TERMINATED;
+            }
+            errorCallback.accept(throwable);
+        }
+
+        private void fail(Throwable throwable) {
+            synchronized (this) {
+                if (state == State.TERMINATED) {
+                    return;
+                }
+                state = State.TERMINATED;
+            }
+            errorCallback.accept(throwable);
         }
     }
 }
