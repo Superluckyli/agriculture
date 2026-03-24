@@ -11,6 +11,7 @@ import lizhuoer.agri.agri_system.module.report.service.support.ReportAnalyticsCo
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @Service
@@ -42,9 +43,23 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             String prompt = promptBuilder.build(context);
             SectionEvidenceRelay relay = new SectionEvidenceRelay(context.currentTab(), context.analytics(), eventConsumer);
             ReportAiSectionStreamParser parser = new ReportAiSectionStreamParser(relay::accept);
-            aiModelClient.stream(prompt, parser::accept);
-            parser.finish();
-            completionCallback.run();
+            AtomicBoolean terminated = new AtomicBoolean(false);
+
+            aiModelClient.stream(
+                    prompt,
+                    parser::accept,
+                    () -> {
+                        if (terminated.compareAndSet(false, true)) {
+                            parser.finish();
+                            completionCallback.run();
+                        }
+                    },
+                    throwable -> {
+                        if (terminated.compareAndSet(false, true)) {
+                            errorCallback.accept(throwable);
+                        }
+                    }
+            );
         } catch (Throwable throwable) {
             errorCallback.accept(throwable);
         }
@@ -85,7 +100,7 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
         }
 
         private void emitEvidenceIfReady() {
-            if (activeSection == null || sectionBuffer.length() == 0) {
+            if (activeSection == null) {
                 return;
             }
             ReportAiStreamEventVO evidenceEvent = new ReportAiStreamEventVO();

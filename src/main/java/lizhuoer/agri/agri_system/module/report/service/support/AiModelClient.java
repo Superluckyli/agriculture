@@ -4,5 +4,8 @@ import java.util.function.Consumer;
 
 @FunctionalInterface
 public interface AiModelClient {
-    void stream(String prompt, Consumer<String> deltaConsumer);
+    void stream(String prompt,
+                Consumer<String> deltaConsumer,
+                Runnable completionCallback,
+                Consumer<Throwable> errorCallback);
 }

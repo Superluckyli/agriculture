@@ -2,7 +2,6 @@ package lizhuoer.agri.agri_system.module.report.service.support;
 
 import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
-import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
 import org.springframework.stereotype.Component;
 
@@ -53,8 +52,10 @@ public class ReportAiPromptBuilder {
     private String renderTaskAnalytics(TaskAnalyticsVO analytics) {
         TaskAnalyticsVO.TrendVO trend = analytics != null ? analytics.getTrend() : null;
         return new StringBuilder()
+                .append("- createdTrend: ").append(trend != null ? safeList(trend.getCreated()) : "[]").append('\n')
                 .append("- completedTrend: ").append(trend != null ? safeList(trend.getCompleted()) : "[]").append('\n')
                 .append("- overdueTrend: ").append(trend != null ? safeList(trend.getOverdue()) : "[]").append('\n')
+                .append("- assigneeRanking: ").append(analytics != null && analytics.getAssigneeRanking() != null ? analytics.getAssigneeRanking() : List.of()).append('\n')
                 .append("- abnormalTasks: ").append(analytics != null && analytics.getAbnormalTasks() != null ? analytics.getAbnormalTasks() : List.of()).append('\n')
                 .toString();
     }
@@ -62,9 +63,11 @@ public class ReportAiPromptBuilder {
     private String renderProductionAnalytics(ProductionAnalyticsVO analytics) {
         ProductionAnalyticsVO.HarvestTrendVO trend = analytics != null ? analytics.getHarvestTrend() : null;
         return new StringBuilder()
+                .append("- cropDistribution: ").append(analytics != null && analytics.getCropDistribution() != null ? analytics.getCropDistribution() : List.of()).append('\n')
                 .append("- riskBatches: ").append(analytics != null && analytics.getRiskBatches() != null ? analytics.getRiskBatches() : List.of()).append('\n')
                 .append("- outputComparison: ").append(analytics != null && analytics.getOutputComparison() != null ? analytics.getOutputComparison() : List.of()).append('\n')
                 .append("- harvestBatchCount: ").append(trend != null ? safeList(trend.getBatchCount()) : "[]").append('\n')
+                .append("- harvestEstimatedOutput: ").append(trend != null ? safeList(trend.getEstimatedOutput()) : "[]").append('\n')
                 .toString();
     }
 
@@ -73,7 +76,9 @@ public class ReportAiPromptBuilder {
         return new StringBuilder()
                 .append("- abnormalCostItems: ").append(analytics != null && analytics.getAbnormalCostItems() != null ? analytics.getAbnormalCostItems() : List.of()).append('\n')
                 .append("- materialCostTopN: ").append(analytics != null && analytics.getMaterialCostTopN() != null ? analytics.getMaterialCostTopN() : List.of()).append('\n')
+                .append("- categoryCostShare: ").append(analytics != null && analytics.getCategoryCostShare() != null ? analytics.getCategoryCostShare() : List.of()).append('\n')
                 .append("- purchaseOrderCount: ").append(trend != null ? safeList(trend.getOrderCount()) : "[]").append('\n')
+                .append("- purchaseAmount: ").append(trend != null ? safeList(trend.getAmount()) : "[]").append('\n')
                 .toString();
     }
 

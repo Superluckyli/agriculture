@@ -15,7 +15,6 @@ import lizhuoer.agri.agri_system.module.report.service.support.ReportAnalyticsCo
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +48,7 @@ class ReportAiSummaryServiceTest {
 
     @BeforeEach
     void setUp() {
+        ArgumentCaptorHolder.prompt = null;
         service = new ReportAiSummaryServiceImpl(
                 aiModelClient,
                 new ReportAnalyticsContextBuilder(reportService),
@@ -59,13 +60,15 @@ class ReportAiSummaryServiceTest {
     void taskTabUsesTaskAnalyticsOnlyAndEmitsEvidenceAfterSectionText() {
         when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
         doAnswer(invocation -> {
-            Consumer<String> sink = invocation.getArgument(1);
-            sink.accept("[SECTION:conclusion]任务执行整体稳定。");
-            sink.accept("[SECTION:reason]完成趋势回升。");
-            sink.accept("[SECTION:risk]逾期仍集中。");
-            sink.accept("[SECTION:attention]建议关注高压执行人。");
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            onDelta.accept("[SECTION:conclusion]任务执行整体稳定。");
+            onDelta.accept("[SECTION:reason]完成趋势回升。");
+            onDelta.accept("[SECTION:risk]逾期仍集中。");
+            onDelta.accept("[SECTION:attention]建议关注高压执行人。");
+            onComplete.run();
             return null;
-        }).when(aiModelClient).stream(anyString(), any());
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
 
         List<ReportAiStreamEventVO> events = new ArrayList<>();
         AtomicBoolean completed = new AtomicBoolean(false);
@@ -90,11 +93,13 @@ class ReportAiSummaryServiceTest {
     void productionTabUsesProductionAnalyticsOnly() {
         when(reportService.getProductionAnalyticsData(any())).thenReturn(productionAnalyticsFixture());
         doAnswer(invocation -> {
-            Consumer<String> sink = invocation.getArgument(1);
-            sink.accept("[SECTION:conclusion]产出表现平稳。[SECTION:reason]目标达成可控。");
-            sink.accept("[SECTION:risk]存在低达成率批次。[SECTION:attention]持续观察风险批次。\n");
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            onDelta.accept("[SECTION:conclusion]产出表现平稳。[SECTION:reason]目标达成可控。");
+            onDelta.accept("[SECTION:risk]存在低达成率批次。[SECTION:attention]持续观察风险批次。\n");
+            onComplete.run();
             return null;
-        }).when(aiModelClient).stream(anyString(), any());
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
 
         List<ReportAiStreamEventVO> events = new ArrayList<>();
         service.stream(request("production"), events::add, () -> {}, throwable -> {
@@ -111,11 +116,13 @@ class ReportAiSummaryServiceTest {
     void costTabUsesCostAnalyticsOnly() {
         when(reportService.getCostAnalyticsData(any())).thenReturn(costAnalyticsFixture());
         doAnswer(invocation -> {
-            Consumer<String> sink = invocation.getArgument(1);
-            sink.accept("[SECTION:conclusion]成本总体平稳。[SECTION:reason]采购节奏正常。");
-            sink.accept("[SECTION:risk]个别物资成本偏高。[SECTION:attention]建议持续观察异常物资。\n");
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            onDelta.accept("[SECTION:conclusion]成本总体平稳。[SECTION:reason]采购节奏正常。");
+            onDelta.accept("[SECTION:risk]个别物资成本偏高。[SECTION:attention]建议持续观察异常物资。\n");
+            onComplete.run();
             return null;
-        }).when(aiModelClient).stream(anyString(), any());
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
 
         service.stream(request("cost"), event -> {}, () -> {}, throwable -> {
             throw new AssertionError("unexpected error", throwable);
@@ -127,17 +134,132 @@ class ReportAiSummaryServiceTest {
     }
 
     @Test
-    void insufficientDataPromptExplicitlyRequiresDataInsufficientWording() {
-        when(reportService.getTaskAnalyticsData(any())).thenReturn(new TaskAnalyticsVO());
-        doAnswer(invocation -> null).when(aiModelClient).stream(anyString(), any());
+    void completionDoesNotFireUntilProviderSignalsStreamCompletion() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        AtomicReference<Runnable> onCompleteRef = new AtomicReference<>();
+        AtomicReference<Consumer<Throwable>> onErrorRef = new AtomicReference<>();
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            onCompleteRef.set(invocation.getArgument(2));
+            onErrorRef.set(invocation.getArgument(3));
+            onDelta.accept("[SECTION:conclusion]任务执行整体稳定。");
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+        service.stream(request("task"), events::add, () -> completed.set(true), errorRef::set);
+
+        assertThat(completed).isFalse();
+        assertThat(errorRef.get()).isNull();
+        assertThat(events).extracting(ReportAiStreamEventVO::getType).doesNotContain("done", "evidence");
+
+        onCompleteRef.get().run();
+
+        assertThat(completed).isTrue();
+        assertThat(errorRef.get()).isNull();
+        assertThat(events).extracting(ReportAiStreamEventVO::getType).contains("evidence", "done");
+
+        onErrorRef.get().accept(new IllegalStateException("late error"));
+        assertThat(errorRef.get()).isNull();
+    }
+
+    @Test
+    void providerErrorCallbackTerminatesWithoutCompletion() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        IllegalStateException providerFailure = new IllegalStateException("provider failed");
+        doAnswer(invocation -> {
+            Consumer<Throwable> onError = invocation.getArgument(3);
+            onError.accept(providerFailure);
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+        service.stream(request("task"), events::add, () -> completed.set(true), errorRef::set);
+
+        assertThat(completed).isFalse();
+        assertThat(errorRef.get()).isSameAs(providerFailure);
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void providerSynchronousThrowTriggersErrorCallback() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        IllegalArgumentException thrown = new IllegalArgumentException("boom");
+        doThrow(thrown).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        AtomicBoolean completed = new AtomicBoolean(false);
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+        service.stream(request("task"), event -> {}, () -> completed.set(true), errorRef::set);
+
+        assertThat(completed).isFalse();
+        assertThat(errorRef.get()).isSameAs(thrown);
+    }
+
+    @Test
+    void emptySectionStillEmitsEvidenceOnCompletion() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            onDelta.accept("[SECTION:conclusion][SECTION:reason]原因说明。\n");
+            onComplete.run();
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        service.stream(request("task"), events::add, () -> {}, throwable -> {
+            throw new AssertionError("unexpected error", throwable);
+        });
+
+        assertThat(events).extracting(ReportAiStreamEventVO::getType, ReportAiStreamEventVO::getSection)
+                .contains(org.assertj.core.groups.Tuple.tuple("evidence", "conclusion"))
+                .contains(org.assertj.core.groups.Tuple.tuple("evidence", "reason"));
+    }
+
+    @Test
+    void dataSufficiencyPromptStaysAlignedWithRenderedTaskAnalytics() {
+        TaskAnalyticsVO analytics = new TaskAnalyticsVO();
+        TaskAnalyticsVO.AssigneeRankingItemVO assignee = new TaskAnalyticsVO.AssigneeRankingItemVO();
+        assignee.setAssigneeName("王工人");
+        assignee.setAssignedCount(4);
+        analytics.setAssigneeRanking(List.of(assignee));
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(analytics);
+        doAnswer(invocation -> {
+            ArgumentCaptorHolder.prompt = invocation.getArgument(0);
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
 
         service.stream(request("task"), event -> {}, () -> {}, throwable -> {
             throw new AssertionError("unexpected error", throwable);
         });
 
-        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(aiModelClient).stream(promptCaptor.capture(), any());
-        assertThat(promptCaptor.getValue())
+        assertThat(ArgumentCaptorHolder.prompt)
+                .contains("assigneeRanking")
+                .contains("王工人")
+                .contains("当前数据足够支撑总结")
+                .doesNotContain("当前分析数据不足");
+    }
+
+    @Test
+    void insufficientDataPromptExplicitlyRequiresDataInsufficientWording() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(new TaskAnalyticsVO());
+        doAnswer(invocation -> {
+            ArgumentCaptorHolder.prompt = invocation.getArgument(0);
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(request("task"), event -> {}, () -> {}, throwable -> {
+            throw new AssertionError("unexpected error", throwable);
+        });
+
+        assertThat(ArgumentCaptorHolder.prompt)
                 .contains("2026-03-01")
                 .contains("2026-03-31")
                 .contains("数据不足")
@@ -172,9 +294,15 @@ class ReportAiSummaryServiceTest {
         TaskAnalyticsVO analytics = new TaskAnalyticsVO();
         TaskAnalyticsVO.TrendVO trend = new TaskAnalyticsVO.TrendVO();
         trend.setLabels(List.of("2026-03-01", "2026-03-02"));
+        trend.setCreated(List.of(7, 9));
         trend.setCompleted(List.of(5, 8));
         trend.setOverdue(List.of(2, 3));
         analytics.setTrend(trend);
+
+        TaskAnalyticsVO.AssigneeRankingItemVO assignee = new TaskAnalyticsVO.AssigneeRankingItemVO();
+        assignee.setAssigneeName("李工人");
+        assignee.setAssignedCount(10);
+        analytics.setAssigneeRanking(List.of(assignee));
 
         TaskAnalyticsVO.AbnormalTaskItemVO abnormalTask = new TaskAnalyticsVO.AbnormalTaskItemVO();
         abnormalTask.setTaskName("灌溉巡检");
@@ -184,6 +312,11 @@ class ReportAiSummaryServiceTest {
 
     private ProductionAnalyticsVO productionAnalyticsFixture() {
         ProductionAnalyticsVO analytics = new ProductionAnalyticsVO();
+        ProductionAnalyticsVO.CropDistributionItemVO crop = new ProductionAnalyticsVO.CropDistributionItemVO();
+        crop.setCropVariety("水稻");
+        crop.setBatchCount(2);
+        analytics.setCropDistribution(List.of(crop));
+
         ProductionAnalyticsVO.RiskBatchItemVO riskBatch = new ProductionAnalyticsVO.RiskBatchItemVO();
         riskBatch.setBatchNo("B-2026-01");
         riskBatch.setFarmlandName("一号地块");
@@ -194,11 +327,20 @@ class ReportAiSummaryServiceTest {
 
     private CostAnalyticsVO costAnalyticsFixture() {
         CostAnalyticsVO analytics = new CostAnalyticsVO();
+        CostAnalyticsVO.PurchaseTrendVO trend = new CostAnalyticsVO.PurchaseTrendVO();
+        trend.setOrderCount(List.of(1, 2));
+        trend.setAmount(List.of(new BigDecimal("88.00"), new BigDecimal("188.50")));
+        analytics.setPurchaseTrend(trend);
+
         CostAnalyticsVO.AbnormalCostItemVO abnormalCost = new CostAnalyticsVO.AbnormalCostItemVO();
         abnormalCost.setMaterialName("生物肥");
         abnormalCost.setSupplierName("绿源供应");
         abnormalCost.setCost(new BigDecimal("1888.50"));
         analytics.setAbnormalCostItems(List.of(abnormalCost));
         return analytics;
+    }
+
+    private static final class ArgumentCaptorHolder {
+        private static String prompt;
     }
 }
