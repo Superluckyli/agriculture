@@ -25,9 +25,9 @@ class HttpAiModelClientTest {
     void streamsOpenAiCompatibleChunksIntoPlainTextDeltas() throws Exception {
         try (FakeAiServer server = FakeAiServer.start("""
                 data: {\"choices\":[{\"delta\":{\"content\":\"[SECTION:conclusion]任务\"}}]}
-                
+
                 data: {\"choices\":[{\"delta\":{\"content\":\"稳定。\"}}]}
-                
+
                 data: [DONE]
                 """)) {
             List<String> deltas = new ArrayList<>();
@@ -41,6 +41,50 @@ class HttpAiModelClientTest {
             assertThat(completed).isTrue();
             assertThat(deltas).containsExactly("[SECTION:conclusion]任务", "稳定。");
             assertThat(server.requestCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void ignoresNonDataLinesBeforeStreamingDeltas() throws Exception {
+        try (FakeAiServer server = FakeAiServer.start("""
+                : keep-alive
+                event: message
+                id: 1
+
+                data: {\"choices\":[{\"delta\":{\"content\":\"可忽略元数据后继续。\"}}]}
+
+                data: [DONE]
+                """)) {
+            List<String> deltas = new ArrayList<>();
+            AtomicBoolean completed = new AtomicBoolean(false);
+            AtomicReference<Throwable> errorRef = new AtomicReference<>();
+            HttpAiModelClient client = clientPointingTo(server.baseUrl(), true);
+
+            client.stream("prompt", deltas::add, () -> completed.set(true), errorRef::set);
+
+            assertThat(errorRef.get()).isNull();
+            assertThat(completed).isTrue();
+            assertThat(deltas).containsExactly("可忽略元数据后继续。");
+        }
+    }
+
+    @Test
+    void eofBeforeDoneIsReportedAsFailure() throws Exception {
+        try (FakeAiServer server = FakeAiServer.start("""
+                data: {\"choices\":[{\"delta\":{\"content\":\"未完整结束\"}}]}
+                """)) {
+            List<String> deltas = new ArrayList<>();
+            AtomicBoolean completed = new AtomicBoolean(false);
+            AtomicReference<Throwable> errorRef = new AtomicReference<>();
+            HttpAiModelClient client = clientPointingTo(server.baseUrl(), true);
+
+            client.stream("prompt", deltas::add, () -> completed.set(true), errorRef::set);
+
+            assertThat(deltas).containsExactly("未完整结束");
+            assertThat(completed).isFalse();
+            assertThat(errorRef.get())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("before [DONE]");
         }
     }
 
@@ -62,7 +106,6 @@ class HttpAiModelClientTest {
             assertThat(server.requestCount()).isZero();
         }
     }
-
 
     @Test
     void enabledProviderRequiresBaseUrlAndModel() {

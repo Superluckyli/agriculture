@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -93,31 +93,45 @@ public class HttpAiModelClient implements AiModelClient {
             return;
         }
         try {
-            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl + path))
-                    .timeout(Duration.ofSeconds(timeoutSeconds))
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "text/event-stream");
-            if (!apiKey.isBlank()) {
-                requestBuilder.header("Authorization", "Bearer " + apiKey);
-            }
-
-            HttpRequest request = requestBuilder
-                    .POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(prompt)))
-                    .build();
-
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpRequest request = buildRequest(prompt);
+            HttpResponse<InputStream> response = send(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("AI provider returned HTTP " + response.statusCode());
+                errorCallback.accept(new IllegalStateException("AI provider returned HTTP " + response.statusCode()));
+                return;
             }
-            consumeStream(response.body(), deltaConsumer);
+            boolean seenDone = consumeStream(response.body(), deltaConsumer);
+            if (!seenDone) {
+                errorCallback.accept(new IllegalStateException("AI provider stream ended before [DONE] marker"));
+                return;
+            }
             completionCallback.run();
-        } catch (Throwable throwable) {
-            errorCallback.accept(throwable);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            errorCallback.accept(exception);
+        } catch (IOException | RuntimeException exception) {
+            errorCallback.accept(exception);
         }
     }
 
-    private void consumeStream(InputStream responseBody, Consumer<String> deltaConsumer) throws IOException {
+    private HttpRequest buildRequest(String prompt) throws IOException {
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + path))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .header("Content-Type", "application/json")
+                .header("Accept", "text/event-stream");
+        if (!apiKey.isBlank()) {
+            requestBuilder.header("Authorization", "Bearer " + apiKey);
+        }
+        return requestBuilder
+                .POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(prompt)))
+                .build();
+    }
+
+    private HttpResponse<InputStream> send(HttpRequest request) throws IOException, InterruptedException {
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+    }
+
+    private boolean consumeStream(InputStream responseBody, Consumer<String> deltaConsumer) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(responseBody, StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -129,7 +143,7 @@ public class HttpAiModelClient implements AiModelClient {
                     continue;
                 }
                 if ("[DONE]".equals(payload)) {
-                    return;
+                    return true;
                 }
                 JsonNode contentNode = OBJECT_MAPPER.readTree(payload)
                         .path("choices")
@@ -144,6 +158,7 @@ public class HttpAiModelClient implements AiModelClient {
                 }
             }
         }
+        return false;
     }
 
     private String buildRequestBody(String prompt) throws IOException {
