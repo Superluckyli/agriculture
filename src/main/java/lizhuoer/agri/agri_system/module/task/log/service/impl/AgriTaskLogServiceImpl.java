@@ -9,6 +9,7 @@ import lizhuoer.agri.agri_system.module.task.log.mapper.AgriTaskLogMapper;
 import lizhuoer.agri.agri_system.module.task.log.service.IAgriTaskLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -56,5 +57,13 @@ public class AgriTaskLogServiceImpl extends ServiceImpl<AgriTaskLogMapper, AgriT
             });
         }
         return logs;
+    }
+
+    @Override
+    public boolean isImageUrlReferenced(String url) {
+        if (!StringUtils.hasText(url)) {
+            return false;
+        }
+        return baseMapper.countByImageUrl(url) > 0;
     }
 }

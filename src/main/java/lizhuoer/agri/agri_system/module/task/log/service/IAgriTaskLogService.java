@@ -12,4 +12,7 @@ public interface IAgriTaskLogService extends IService<AgriTaskLog> {
 
     /** 按任务ID查询日志（含操作人姓名），按 createdAt 倒序 */
     List<AgriTaskLog> listByTaskId(Long taskId);
+
+    /** 图片地址是否已被任务日志引用 */
+    boolean isImageUrlReferenced(String url);
 }

@@ -6,9 +6,12 @@ import lizhuoer.agri.agri_system.common.domain.PageResult;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.common.security.LoginUserContext;
 import lizhuoer.agri.agri_system.module.task.log.domain.AgriTaskLog;
+import lizhuoer.agri.agri_system.module.task.log.domain.TaskLogImageUploadVO;
 import lizhuoer.agri.agri_system.module.task.log.service.IAgriTaskLogService;
+import lizhuoer.agri.agri_system.module.task.log.service.TaskLogImageStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -18,6 +21,9 @@ public class AgriTaskLogController {
 
     @Autowired
     private IAgriTaskLogService taskLogService;
+
+    @Autowired
+    private TaskLogImageStorageService taskLogImageStorageService;
 
     @GetMapping("/{taskId}")
     public R<List<AgriTaskLog>> listByTask(@PathVariable Long taskId) {
@@ -53,5 +59,10 @@ public class AgriTaskLogController {
         Long operatorId = LoginUserContext.requireUser().getUserId();
         taskLogService.addLog(taskId, action, operatorId, content);
         return R.ok();
+    }
+
+    @PostMapping("/upload-image")
+    public R<TaskLogImageUploadVO> uploadImage(@RequestParam("file") MultipartFile file) {
+        return R.ok(taskLogImageStorageService.store(file));
     }
 }

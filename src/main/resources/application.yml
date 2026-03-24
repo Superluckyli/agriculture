@@ -31,3 +31,9 @@ mybatis-plus:
 jwt:
   secret: ${JWT_SECRET:AgriSystemKey_123456}
   ttl-hours: ${JWT_TTL_HOURS:24}
+
+task:
+  log:
+    image:
+      storage-root: ${TASK_LOG_IMAGE_STORAGE_ROOT:uploads}
+      url-prefix: ${TASK_LOG_IMAGE_URL_PREFIX:/uploads}
