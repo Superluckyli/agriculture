@@ -152,7 +152,7 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
 
         private void fail(Throwable throwable) {
             synchronized (this) {
-                if (state == State.TERMINATED) {
+                if (state != State.OPEN) {
                     return;
                 }
                 state = State.TERMINATED;

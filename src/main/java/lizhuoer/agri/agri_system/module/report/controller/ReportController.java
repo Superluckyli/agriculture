@@ -77,7 +77,8 @@ public class ReportController {
         reportAiSummaryService.stream(
                 request,
                 event -> sendEvent(emitter, event),
-                emitter::complete,
+                () -> {
+                },
                 emitter::completeWithError
         );
         return emitter;
@@ -86,6 +87,9 @@ public class ReportController {
     private void sendEvent(SseEmitter emitter, ReportAiStreamEventVO event) {
         try {
             emitter.send(SseEmitter.event().data(event));
+            if (event != null && "done".equals(event.getType())) {
+                emitter.complete();
+            }
         } catch (IOException e) {
             throw new IllegalStateException("Failed to send AI summary stream event", e);
         }

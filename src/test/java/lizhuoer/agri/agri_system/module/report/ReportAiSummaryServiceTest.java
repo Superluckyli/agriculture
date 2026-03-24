@@ -168,6 +168,39 @@ class ReportAiSummaryServiceTest {
     }
 
     @Test
+    void providerErrorDuringCompletingDoesNotBeatSuccessfulCompletion() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        AtomicReference<Consumer<Throwable>> onErrorRef = new AtomicReference<>();
+        AtomicInteger completionCount = new AtomicInteger();
+        AtomicInteger errorCount = new AtomicInteger();
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            onErrorRef.set(invocation.getArgument(3));
+            onDelta.accept("[SECTION:conclusion]完成竞态测试。");
+            onComplete.run();
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(
+                request("task"),
+                events::add,
+                () -> {
+                    onErrorRef.get().accept(new IllegalStateException("racing provider error"));
+                    completionCount.incrementAndGet();
+                },
+                throwable -> errorCount.incrementAndGet()
+        );
+
+        assertThat(completionCount.get()).isEqualTo(1);
+        assertThat(errorCount.get()).isZero();
+        assertThat(events).extracting(ReportAiStreamEventVO::getType)
+                .containsExactly("section-start", "section-chunk", "evidence", "done");
+    }
+
+    @Test
     void providerErrorCallbackTerminatesWithoutCompletion() {
         when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
         IllegalStateException providerFailure = new IllegalStateException("provider failed");
@@ -430,6 +463,28 @@ class ReportAiSummaryServiceTest {
         assertThat(ArgumentCaptorHolder.prompt)
                 .contains("cropDistribution")
                 .contains("水稻")
+                .contains(defaultedFilterContext().getStartDate().toString())
+                .contains(defaultedFilterContext().getEndDate().toString())
+                .contains("当前数据足够支撑总结");
+    }
+
+    @Test
+    void costPromptAlignmentUsesCostDataAndNormalizedFilters() {
+        CostAnalyticsVO analytics = costAnalyticsFixture();
+        analytics.setFilterContext(defaultedFilterContext());
+        when(reportService.getCostAnalyticsData(any())).thenReturn(analytics);
+        doAnswer(invocation -> {
+            ArgumentCaptorHolder.prompt = invocation.getArgument(0);
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(requestWithNullDates("cost"), event -> {}, () -> {}, throwable -> {
+            throw new AssertionError("unexpected error", throwable);
+        });
+
+        assertThat(ArgumentCaptorHolder.prompt)
+                .contains("abnormalCostItems")
+                .contains("生物肥")
                 .contains(defaultedFilterContext().getStartDate().toString())
                 .contains(defaultedFilterContext().getEndDate().toString())
                 .contains("当前数据足够支撑总结");
