@@ -37,3 +37,12 @@ task:
     image:
       storage-root: ${TASK_LOG_IMAGE_STORAGE_ROOT:uploads}
       url-prefix: ${TASK_LOG_IMAGE_URL_PREFIX:/uploads}
+
+report:
+  ai:
+    enabled: ${REPORT_AI_ENABLED:false}
+    base-url: ${REPORT_AI_BASE_URL:}
+    api-key: ${REPORT_AI_API_KEY:}
+    model: ${REPORT_AI_MODEL:}
+    path: ${REPORT_AI_PATH:/v1/chat/completions}
+    timeout-seconds: ${REPORT_AI_TIMEOUT_SECONDS:60}

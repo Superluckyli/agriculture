@@ -28,3 +28,12 @@ mybatis-plus:
 jwt:
   secret: TestSecretKey_123456
   ttl-hours: 24
+
+report:
+  ai:
+    enabled: false
+    base-url: ""
+    api-key: ""
+    model: ""
+    path: /v1/chat/completions
+    timeout-seconds: 60
