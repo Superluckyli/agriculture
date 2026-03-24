@@ -29,6 +29,9 @@ public class ReportAiSectionStreamParser {
     public void finish() {
         drain(true);
         buffer.setLength(0);
+    }
+
+    public void emitDone() {
         ReportAiStreamEventVO done = new ReportAiStreamEventVO();
         done.setType("done");
         eventConsumer.accept(done);

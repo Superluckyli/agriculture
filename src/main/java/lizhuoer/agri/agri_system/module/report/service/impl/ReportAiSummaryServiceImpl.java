@@ -68,6 +68,7 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
         try {
             parser.finish();
             completionCallback.run();
+            parser.emitDone();
             termination.markCompleted();
         } catch (Throwable throwable) {
             termination.failAfterCompletionFailure(throwable);

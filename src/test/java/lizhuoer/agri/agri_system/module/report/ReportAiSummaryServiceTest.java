@@ -238,7 +238,7 @@ class ReportAiSummaryServiceTest {
                 request("task"),
                 event -> {
                     eventTypes.add(event.getType());
-                    if ("evidence".equals(event.getType())) {
+                    if ("section-chunk".equals(event.getType()) && "收尾文本".equals(event.getSummary())) {
                         throw new IllegalStateException("flush failure");
                     }
                 },
@@ -252,7 +252,41 @@ class ReportAiSummaryServiceTest {
         assertThat(completionCount.get()).isZero();
         assertThat(errorCount.get()).isEqualTo(1);
         assertThat(errorRef.get()).hasMessage("flush failure");
-        assertThat(eventTypes).containsExactly("section-start", "section-chunk", "evidence");
+        assertThat(eventTypes).containsExactly("section-start", "section-chunk");
+    }
+
+    @Test
+    void completionCallbackThrowDoesNotLeakDoneAndRoutesErrorOnce() {
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(taskAnalyticsFixture());
+        List<ReportAiStreamEventVO> events = new ArrayList<>();
+        AtomicInteger errorCount = new AtomicInteger();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        doAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(1);
+            Runnable onComplete = invocation.getArgument(2);
+            Consumer<Throwable> onError = invocation.getArgument(3);
+            onDelta.accept("[SECTION:conclusion]完成前内容");
+            onComplete.run();
+            onError.accept(new IllegalStateException("late error should be ignored"));
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(
+                request("task"),
+                events::add,
+                () -> {
+                    throw new IllegalStateException("completion failed");
+                },
+                throwable -> {
+                    errorCount.incrementAndGet();
+                    errorRef.set(throwable);
+                }
+        );
+
+        assertThat(errorCount.get()).isEqualTo(1);
+        assertThat(errorRef.get()).hasMessage("completion failed");
+        assertThat(events).extracting(ReportAiStreamEventVO::getType)
+                .containsExactly("section-start", "section-chunk");
     }
 
     @Test
@@ -359,38 +393,65 @@ class ReportAiSummaryServiceTest {
         assignee.setAssigneeName("王工人");
         assignee.setAssignedCount(4);
         analytics.setAssigneeRanking(List.of(assignee));
+        analytics.setFilterContext(defaultedFilterContext());
         when(reportService.getTaskAnalyticsData(any())).thenReturn(analytics);
         doAnswer(invocation -> {
             ArgumentCaptorHolder.prompt = invocation.getArgument(0);
             return null;
         }).when(aiModelClient).stream(anyString(), any(), any(), any());
 
-        service.stream(request("task"), event -> {}, () -> {}, throwable -> {
+        service.stream(requestWithNullDates("task"), event -> {}, () -> {}, throwable -> {
             throw new AssertionError("unexpected error", throwable);
         });
 
         assertThat(ArgumentCaptorHolder.prompt)
                 .contains("assigneeRanking")
                 .contains("王工人")
+                .contains(defaultedFilterContext().getStartDate().toString())
+                .contains(defaultedFilterContext().getEndDate().toString())
                 .contains("当前数据足够支撑总结")
                 .doesNotContain("当前分析数据不足");
     }
 
     @Test
-    void insufficientDataPromptExplicitlyRequiresDataInsufficientWording() {
-        when(reportService.getTaskAnalyticsData(any())).thenReturn(new TaskAnalyticsVO());
+    void productionPromptAlignmentUsesProductionDataAndNormalizedFilters() {
+        ProductionAnalyticsVO analytics = productionAnalyticsFixture();
+        analytics.setFilterContext(defaultedFilterContext());
+        when(reportService.getProductionAnalyticsData(any())).thenReturn(analytics);
         doAnswer(invocation -> {
             ArgumentCaptorHolder.prompt = invocation.getArgument(0);
             return null;
         }).when(aiModelClient).stream(anyString(), any(), any(), any());
 
-        service.stream(request("task"), event -> {}, () -> {}, throwable -> {
+        service.stream(requestWithNullDates("production"), event -> {}, () -> {}, throwable -> {
             throw new AssertionError("unexpected error", throwable);
         });
 
         assertThat(ArgumentCaptorHolder.prompt)
-                .contains("2026-03-01")
-                .contains("2026-03-31")
+                .contains("cropDistribution")
+                .contains("水稻")
+                .contains(defaultedFilterContext().getStartDate().toString())
+                .contains(defaultedFilterContext().getEndDate().toString())
+                .contains("当前数据足够支撑总结");
+    }
+
+    @Test
+    void insufficientDataPromptExplicitlyRequiresDataInsufficientWording() {
+        TaskAnalyticsVO analytics = new TaskAnalyticsVO();
+        analytics.setFilterContext(defaultedFilterContext());
+        when(reportService.getTaskAnalyticsData(any())).thenReturn(analytics);
+        doAnswer(invocation -> {
+            ArgumentCaptorHolder.prompt = invocation.getArgument(0);
+            return null;
+        }).when(aiModelClient).stream(anyString(), any(), any(), any());
+
+        service.stream(requestWithNullDates("task"), event -> {}, () -> {}, throwable -> {
+            throw new AssertionError("unexpected error", throwable);
+        });
+
+        assertThat(ArgumentCaptorHolder.prompt)
+                .contains(defaultedFilterContext().getStartDate().toString())
+                .contains(defaultedFilterContext().getEndDate().toString())
                 .contains("数据不足")
                 .contains("关注 / 复核 / 持续观察")
                 .contains("[SECTION:conclusion]")
@@ -419,6 +480,23 @@ class ReportAiSummaryServiceTest {
         return request;
     }
 
+    private ReportAiSummaryRequestDTO requestWithNullDates(String currentTab) {
+        ReportAnalyticsFilterDTO filters = new ReportAnalyticsFilterDTO();
+        filters.setGranularity(null);
+        ReportAiSummaryRequestDTO request = new ReportAiSummaryRequestDTO();
+        request.setCurrentTab(currentTab);
+        request.setFilters(filters);
+        return request;
+    }
+
+    private ReportAnalyticsFilterDTO defaultedFilterContext() {
+        ReportAnalyticsFilterDTO filter = new ReportAnalyticsFilterDTO();
+        filter.setStartDate(LocalDate.now().minusDays(29));
+        filter.setEndDate(LocalDate.now());
+        filter.setGranularity("day");
+        return filter;
+    }
+
     private TaskAnalyticsVO taskAnalyticsFixture() {
         TaskAnalyticsVO analytics = new TaskAnalyticsVO();
         TaskAnalyticsVO.TrendVO trend = new TaskAnalyticsVO.TrendVO();
@@ -427,6 +505,7 @@ class ReportAiSummaryServiceTest {
         trend.setCompleted(List.of(5, 8));
         trend.setOverdue(List.of(2, 3));
         analytics.setTrend(trend);
+        analytics.setFilterContext(request("task").getFilters());
 
         TaskAnalyticsVO.AssigneeRankingItemVO assignee = new TaskAnalyticsVO.AssigneeRankingItemVO();
         assignee.setAssigneeName("李工人");
@@ -445,6 +524,7 @@ class ReportAiSummaryServiceTest {
         crop.setCropVariety("水稻");
         crop.setBatchCount(2);
         analytics.setCropDistribution(List.of(crop));
+        analytics.setFilterContext(request("production").getFilters());
 
         ProductionAnalyticsVO.RiskBatchItemVO riskBatch = new ProductionAnalyticsVO.RiskBatchItemVO();
         riskBatch.setBatchNo("B-2026-01");
@@ -460,6 +540,7 @@ class ReportAiSummaryServiceTest {
         trend.setOrderCount(List.of(1, 2));
         trend.setAmount(List.of(new BigDecimal("88.00"), new BigDecimal("188.50")));
         analytics.setPurchaseTrend(trend);
+        analytics.setFilterContext(request("cost").getFilters());
 
         CostAnalyticsVO.AbnormalCostItemVO abnormalCost = new CostAnalyticsVO.AbnormalCostItemVO();
         abnormalCost.setMaterialName("生物肥");

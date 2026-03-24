@@ -24,6 +24,7 @@ class ReportAiSectionStreamParserTest {
 
         parser.accept("[SECTION:risk]存在产量偏低风险。");
         parser.finish();
+        parser.emitDone();
 
         assertThat(events).extracting(ReportAiStreamEventVO::getType)
                 .containsExactly("section-start", "section-chunk", "done");
@@ -41,6 +42,7 @@ class ReportAiSectionStreamParserTest {
         parser.accept("[SECTION:concl");
         parser.accept("usion]任务整体表现稳定。[SECTION:reason]主要因为完成趋势回升。");
         parser.finish();
+        parser.emitDone();
 
         assertThat(events).extracting(ReportAiStreamEventVO::getType)
                 .containsExactly("section-start", "section-chunk", "section-start", "section-chunk", "done");
@@ -57,6 +59,7 @@ class ReportAiSectionStreamParserTest {
 
         parser.accept("[SECTION:conclusion]已完成总结。[SECTION:unknown]这段文本不应落到上一节。");
         parser.finish();
+        parser.emitDone();
 
         assertThat(events).extracting(ReportAiStreamEventVO::getType)
                 .containsExactly("section-start", "section-chunk", "done");

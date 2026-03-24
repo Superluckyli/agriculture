@@ -9,6 +9,7 @@ import lizhuoer.agri.agri_system.module.report.service.IReportService;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,14 +23,44 @@ public class ReportAnalyticsContextBuilder {
     }
 
     public ReportAnalyticsContext build(ReportAiSummaryRequestDTO request) {
-        ReportAnalyticsFilterDTO filters = request.getFilters();
+        ReportAnalyticsFilterDTO requestedFilters = request.getFilters();
         Object analytics = switch (request.getCurrentTab()) {
-            case "task" -> reportService.getTaskAnalyticsData(filters);
-            case "production" -> reportService.getProductionAnalyticsData(filters);
-            case "cost" -> reportService.getCostAnalyticsData(filters);
+            case "task" -> reportService.getTaskAnalyticsData(requestedFilters);
+            case "production" -> reportService.getProductionAnalyticsData(requestedFilters);
+            case "cost" -> reportService.getCostAnalyticsData(requestedFilters);
             default -> throw new IllegalArgumentException("Unsupported currentTab");
         };
-        return new ReportAnalyticsContext(request.getCurrentTab(), filters, analytics, isDataSufficient(request.getCurrentTab(), analytics));
+        ReportAnalyticsFilterDTO effectiveFilters = resolveEffectiveFilters(request.getCurrentTab(), requestedFilters, analytics);
+        return new ReportAnalyticsContext(request.getCurrentTab(), effectiveFilters, analytics, isDataSufficient(request.getCurrentTab(), analytics));
+    }
+
+    private ReportAnalyticsFilterDTO resolveEffectiveFilters(String currentTab,
+                                                             ReportAnalyticsFilterDTO requestedFilters,
+                                                             Object analytics) {
+        ReportAnalyticsFilterDTO filterContext = switch (currentTab) {
+            case "task" -> analytics instanceof TaskAnalyticsVO taskAnalytics ? taskAnalytics.getFilterContext() : null;
+            case "production" -> analytics instanceof ProductionAnalyticsVO productionAnalytics ? productionAnalytics.getFilterContext() : null;
+            case "cost" -> analytics instanceof CostAnalyticsVO costAnalytics ? costAnalytics.getFilterContext() : null;
+            default -> null;
+        };
+        return filterContext != null ? filterContext : normalizeFilters(requestedFilters);
+    }
+
+    private ReportAnalyticsFilterDTO normalizeFilters(ReportAnalyticsFilterDTO filter) {
+        ReportAnalyticsFilterDTO normalized = new ReportAnalyticsFilterDTO();
+        LocalDate today = LocalDate.now();
+        normalized.setStartDate(filter != null && filter.getStartDate() != null ? filter.getStartDate() : today.minusDays(29));
+        normalized.setEndDate(filter != null && filter.getEndDate() != null ? filter.getEndDate() : today);
+        normalized.setGranularity(filter != null && filter.getGranularity() != null && !filter.getGranularity().isBlank()
+                ? filter.getGranularity() : "day");
+        if (filter != null) {
+            normalized.setFarmlandId(filter.getFarmlandId());
+            normalized.setVarietyId(filter.getVarietyId());
+            normalized.setAssigneeId(filter.getAssigneeId());
+            normalized.setMaterialCategory(filter.getMaterialCategory());
+            normalized.setSupplierId(filter.getSupplierId());
+        }
+        return normalized;
     }
 
     private boolean isDataSufficient(String currentTab, Object analytics) {
