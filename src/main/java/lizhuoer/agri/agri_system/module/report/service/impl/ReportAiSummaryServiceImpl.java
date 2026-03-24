@@ -47,8 +47,13 @@ public class ReportAiSummaryServiceImpl implements IReportAiSummaryService {
             aiModelClient.stream(
                     prompt,
                     delta -> {
-                        if (termination.allowDelta()) {
+                        if (!termination.allowDelta()) {
+                            return;
+                        }
+                        try {
                             parser.accept(delta);
+                        } catch (Throwable throwable) {
+                            termination.fail(throwable);
                         }
                     },
                     () -> terminateCompletion(termination, parser, completionCallback),

@@ -106,6 +106,17 @@ class ReportAiSummaryControllerTest {
     }
 
     @Test
+    void aiSummaryStreamRejectsUnsupportedCurrentTab() throws Exception {
+        mockMvc.perform(post("/report/analytics/ai-summary/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"currentTab":"overview","filters":{"startDate":"2026-03-01","endDate":"2026-03-31"}}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.msg", containsString("currentTab")));
+    }
+
+    @Test
     void aiSummaryStreamFailsWhenServiceIsUnavailable() throws Exception {
         ReportController controller = new ReportController();
         ReflectionTestUtils.setField(controller, "reportService", new StubReportService());
@@ -121,6 +132,37 @@ class ReportAiSummaryControllerTest {
                         """))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.msg", containsString("系统异常")));
+    }
+
+    @Test
+    void aiSummaryStreamEmitsFinalEvidenceAndDoneBeforeTransportClosure() throws Exception {
+        ReportController controller = new ReportController();
+        ReflectionTestUtils.setField(controller, "reportService", new StubReportService());
+        ReflectionTestUtils.setField(controller, "reportAiSummaryServiceProvider",
+                providerFor(new OrderedStubReportAiSummaryService()));
+        MockMvc orderedMockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        MvcResult mvcResult = orderedMockMvc.perform(post("/report/analytics/ai-summary/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"currentTab":"task","filters":{"startDate":"2026-03-01","endDate":"2026-03-31"}}
+                        """))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        MvcResult response = orderedMockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+                .andReturn();
+
+        List<JsonNode> events = parseDataEvents(response.getResponse().getContentAsString());
+        assertThat(events).extracting(event -> event.path("type").asText())
+                .containsExactly("section-start", "evidence", "done");
+        assertThat(events.get(1).path("section").asText()).isEqualTo("task");
+        assertThat(events.get(1).path("evidence").isArray()).isTrue();
+        assertThat(events.get(2).path("type").asText()).isEqualTo("done");
     }
 
     private List<JsonNode> parseDataEvents(String body) {
@@ -178,6 +220,32 @@ class ReportAiSummaryControllerTest {
             done.setType("done");
             done.setSection(request.getCurrentTab());
             eventConsumer.accept(done);
+            completionCallback.run();
+        }
+    }
+
+    private static final class OrderedStubReportAiSummaryService implements IReportAiSummaryService {
+        @Override
+        public void stream(ReportAiSummaryRequestDTO request,
+                           Consumer<ReportAiStreamEventVO> eventConsumer,
+                           Runnable completionCallback,
+                           Consumer<Throwable> errorCallback) {
+            ReportAiStreamEventVO sectionStart = new ReportAiStreamEventVO();
+            sectionStart.setType("section-start");
+            sectionStart.setSection(request.getCurrentTab());
+            eventConsumer.accept(sectionStart);
+
+            ReportAiStreamEventVO evidence = new ReportAiStreamEventVO();
+            evidence.setType("evidence");
+            evidence.setSection(request.getCurrentTab());
+            evidence.setEvidence(List.of());
+            eventConsumer.accept(evidence);
+
+            ReportAiStreamEventVO done = new ReportAiStreamEventVO();
+            done.setType("done");
+            done.setSection(request.getCurrentTab());
+            eventConsumer.accept(done);
+
             completionCallback.run();
         }
     }
