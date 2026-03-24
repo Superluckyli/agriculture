@@ -19,7 +19,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,6 +42,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ReportAiSummaryServiceTest {
 
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-03-31T00:00:00Z"), ZoneId.of("Asia/Shanghai"));
+
     @Mock
     private IReportService reportService;
 
@@ -52,7 +57,7 @@ class ReportAiSummaryServiceTest {
         ArgumentCaptorHolder.prompt = null;
         service = new ReportAiSummaryServiceImpl(
                 aiModelClient,
-                new ReportAnalyticsContextBuilder(reportService),
+                new ReportAnalyticsContextBuilder(reportService, FIXED_CLOCK),
                 new ReportAiPromptBuilder(),
                 new ReportAiEvidenceBuilder());
     }
@@ -546,8 +551,8 @@ class ReportAiSummaryServiceTest {
 
     private ReportAnalyticsFilterDTO defaultedFilterContext() {
         ReportAnalyticsFilterDTO filter = new ReportAnalyticsFilterDTO();
-        filter.setStartDate(LocalDate.now().minusDays(29));
-        filter.setEndDate(LocalDate.now());
+        filter.setStartDate(LocalDate.now(FIXED_CLOCK).minusDays(29));
+        filter.setEndDate(LocalDate.now(FIXED_CLOCK));
         filter.setGranularity("day");
         return filter;
     }

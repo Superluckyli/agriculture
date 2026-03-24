@@ -9,6 +9,7 @@ import lizhuoer.agri.agri_system.module.report.service.IReportService;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
@@ -17,9 +18,15 @@ import java.util.Objects;
 public class ReportAnalyticsContextBuilder {
 
     private final IReportService reportService;
+    private final Clock clock;
 
     public ReportAnalyticsContextBuilder(IReportService reportService) {
+        this(reportService, Clock.systemDefaultZone());
+    }
+
+    public ReportAnalyticsContextBuilder(IReportService reportService, Clock clock) {
         this.reportService = reportService;
+        this.clock = clock;
     }
 
     public ReportAnalyticsContext build(ReportAiSummaryRequestDTO request) {
@@ -48,7 +55,7 @@ public class ReportAnalyticsContextBuilder {
 
     private ReportAnalyticsFilterDTO normalizeFilters(ReportAnalyticsFilterDTO filter) {
         ReportAnalyticsFilterDTO normalized = new ReportAnalyticsFilterDTO();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         normalized.setStartDate(filter != null && filter.getStartDate() != null ? filter.getStartDate() : today.minusDays(29));
         normalized.setEndDate(filter != null && filter.getEndDate() != null ? filter.getEndDate() : today);
         normalized.setGranularity(filter != null && filter.getGranularity() != null && !filter.getGranularity().isBlank()
