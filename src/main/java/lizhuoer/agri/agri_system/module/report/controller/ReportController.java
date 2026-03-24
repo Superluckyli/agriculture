@@ -1,21 +1,30 @@
 package lizhuoer.agri.agri_system.module.report.controller;
 
+import jakarta.validation.Valid;
 import lizhuoer.agri.agri_system.common.domain.R;
 import lizhuoer.agri.agri_system.module.report.domain.CostAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.domain.DashboardV2VO;
 import lizhuoer.agri.agri_system.module.report.domain.ProductionAnalyticsVO;
+import lizhuoer.agri.agri_system.module.report.domain.ReportAiSummaryRequestDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsOverviewVO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
+import lizhuoer.agri.agri_system.module.report.service.IReportAiSummaryService;
 import lizhuoer.agri.agri_system.module.report.service.IReportService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/report")
@@ -23,6 +32,9 @@ public class ReportController {
 
     @Autowired
     private IReportService reportService;
+
+    @Autowired
+    private IReportAiSummaryService reportAiSummaryService;
 
     @GetMapping("/dashboard")
     public R<Map<String, Object>> dashboard() {
@@ -52,6 +64,28 @@ public class ReportController {
     @GetMapping("/analytics/cost")
     public R<CostAnalyticsVO> costAnalytics(ReportAnalyticsFilterDTO filter) {
         return R.ok(ensureCostShape(reportService.getCostAnalyticsData(filter), filter));
+    }
+
+    @PostMapping(value = "/analytics/ai-summary/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter aiSummaryStream(@Valid @RequestBody ReportAiSummaryRequestDTO request) {
+        SseEmitter emitter = new SseEmitter(60_000L);
+        CompletableFuture.runAsync(() -> {
+            try {
+                reportAiSummaryService.stream(request, event -> sendEvent(emitter, event));
+                emitter.complete();
+            } catch (Exception ex) {
+                emitter.completeWithError(ex);
+            }
+        });
+        return emitter;
+    }
+
+    private void sendEvent(SseEmitter emitter, Object event) {
+        try {
+            emitter.send(SseEmitter.event().data(event));
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to send AI summary stream event", e);
+        }
     }
 
     private ReportAnalyticsOverviewVO ensureOverviewShape(ReportAnalyticsOverviewVO vo, ReportAnalyticsFilterDTO filter) {
