@@ -6,6 +6,7 @@ import lizhuoer.agri.agri_system.module.report.domain.ReportAiSummaryRequestDTO;
 import lizhuoer.agri.agri_system.module.report.domain.ReportAnalyticsFilterDTO;
 import lizhuoer.agri.agri_system.module.report.domain.TaskAnalyticsVO;
 import lizhuoer.agri.agri_system.module.report.service.IReportService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ public class ReportAnalyticsContextBuilder {
     private final IReportService reportService;
     private final Clock clock;
 
+    @Autowired
     public ReportAnalyticsContextBuilder(IReportService reportService) {
         this(reportService, Clock.systemDefaultZone());
     }
